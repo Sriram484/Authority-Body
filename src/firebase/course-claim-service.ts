@@ -9,7 +9,8 @@ import {
   arrayUnion,
   serverTimestamp,
   QueryDocumentSnapshot,
-  where, query,
+  where,
+  query,
 } from "firebase/firestore";
 
 import { db } from "./firebase-config";
@@ -50,18 +51,17 @@ const formatDate = (ts: any): string => {
   return d.toISOString().split("T")[0];
 };
 
-const normalizeClaim = (
-  snap: QueryDocumentSnapshot
-): CourseClaimRequest => {
+const normalizeClaim = (snap: QueryDocumentSnapshot): CourseClaimRequest => {
   const raw: any = snap.data();
 
   return {
     id: snap.id,
     courseId: raw.courseId,
     courseTitle: raw.courseName || raw.courseTitle || "Untitled Course",
-    agencyId: Array.isArray(raw.aaIds) && raw.aaIds.length > 0
-      ? raw.aaIds[0]
-      : raw.createdBy,
+    agencyId:
+      Array.isArray(raw.aaIds) && raw.aaIds.length > 0
+        ? raw.aaIds[0]
+        : raw.createdBy,
     agencyName: raw.agencyName || raw.createdBy || "Unknown Agency",
     status: raw.status || "pending",
     submittedDate: formatDate(raw.createdAt || raw.requestedAt),
@@ -76,22 +76,19 @@ const normalizeClaim = (
 };
 
 /**
- * Get all course claim requests 
+ * Get all course claim requests
  */
 export async function getCourseClaimRequests(
   abId: string
 ): Promise<CourseClaimRequest[]> {
-    console.log("@###",abId);
+  console.log("@###", abId);
   if (!abId) return []; // no AB id → no claims
-
-  
 
   const colRef = collection(db, "courseRequests");
   const q = query(colRef, where("abIds", "array-contains", abId));
   const snap = await getDocs(q);
   return snap.docs.map(normalizeClaim);
 }
-
 
 /**
  * Approve a claim:
@@ -136,7 +133,6 @@ export async function approveCourseClaimRequest(
     tx.delete(claimRef);
   });
 }
-
 
 /**
  * Reject a claim:
@@ -184,4 +180,37 @@ export async function rejectCourseClaimRequest(
   return normalizeClaim(updatedSnap as any);
 }
 
+// src/firebase/attachment-service.ts
+export type AttachmentDoc = {
+  id: string;
+  filename?: string | null;
+  mimeType?: string | null; // optional stored MIME type
+  base64?: string | null; // raw base64 (without data: prefix) OR
+  dataUrl?: string | null; // full data URL like data:application/pdf;base64,...
+  size?: number | null;
+  createdAt?: any;
+};
 
+export async function fetchAttachmentDocById(
+  id: string
+): Promise<AttachmentDoc | null> {
+  if (!id) return null;
+  try {
+    const ref = doc(db, "attachments", id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    const data = snap.data() as any;
+    return {
+      id: snap.id,
+      filename: data.filename ?? data.name ?? null,
+      mimeType: data.mimeType ?? data.type ?? null,
+      base64: data.base64 ?? null,
+      dataUrl: data.dataUrl ?? null,
+      size: data.size ?? null,
+      createdAt: data.createdAt ?? null,
+    };
+  } catch (err) {
+    console.error("fetchAttachmentDocById error:", err);
+    throw err;
+  }
+}

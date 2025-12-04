@@ -19,22 +19,37 @@ import {
   approveCourseClaimRequest,
   rejectCourseClaimRequest,
   CourseClaimRequest,
+  fetchAttachmentDocById,
 } from "../firebase/course-claim-service";
-import { useAuth } from "../context/AuthContext"; 
+import { useAuth } from "../context/AuthContext";
+import {
+  dataUrlToBlob,
+  normalizeToDataUrl,
+} from "../utils/attachmentConverters";
 
 const itemsPerPage = 10;
 
 const CourseClaims: React.FC = () => {
-   const { abId } = useAuth(); 
+  const { abId } = useAuth();
+
   const [claims, setClaims] = useState<CourseClaimRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedClaim, setSelectedClaim] = useState<CourseClaimRequest | null>(null);
+  const [selectedClaim, setSelectedClaim] = useState<CourseClaimRequest | null>(
+    null
+  );
   const [remarks, setRemarks] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  console.log(selectedClaim);
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string | null>(null);
+  const [previewMime, setPreviewMime] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   /* ---------- load from Firestore ---------- */
   useEffect(() => {
@@ -62,14 +77,17 @@ const CourseClaims: React.FC = () => {
       (claim.rationale || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      statusFilter === "All" || claim.status.toLowerCase() === statusFilter.toLowerCase();
+      statusFilter === "All" ||
+      claim.status.toLowerCase() === statusFilter.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
-
   const totalPages = Math.ceil(filteredClaims.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedClaims = filteredClaims.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedClaims = filteredClaims.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   /* ---------- helpers ---------- */
   const handleExport = () => {
@@ -176,9 +194,7 @@ const CourseClaims: React.FC = () => {
         abId || ""
       );
 
-      setClaims((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
+      setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       setSelectedClaim(updated);
       closeModal();
     } catch (err: any) {
@@ -187,23 +203,126 @@ const CourseClaims: React.FC = () => {
     }
   };
 
+  // const handleViewDocument = async (docRef: {
+  //   id: string;
+  //   name?: string;
+  //   type?: string;
+  //   size?: number;
+  // }) => {
+  //   if (!docRef?.id) {
+  //     alert("Document id missing");
+  //     return;
+  //   }
+  //   setPreviewLoading(true);
+  //   try {
+  //     const attach = await fetchAttachmentDocById(docRef.id);
+  //     if (!attach) {
+  //       alert("Attachment not found");
+  //       return;
+  //     }
+
+  //     // prefer dataUrl (complete), else build from base64 + mimeType
+  //     const maybeDataUrl =
+  //       attach.dataUrl ??
+  //       (attach.base64
+  //         ? normalizeToDataUrl(
+  //             attach.base64,
+  //             attach.mimeType ?? attach.mimeType
+  //           )
+  //         : null);
+
+  //     if (!maybeDataUrl) {
+  //       alert("Attachment content missing (no base64/dataUrl stored).");
+  //       return;
+  //     }
+
+  //     const blob = dataUrlToBlob(maybeDataUrl);
+  //     const url = URL.createObjectURL(blob);
+
+  //     setPreviewUrl(url);
+  //     setPreviewName(
+  //       attach.filename ?? docRef.name ?? `attachment-${docRef.id}`
+  //     );
+  //     setPreviewMime(attach.mimeType ?? docRef.type ?? blob.type);
+  //     setIsPreviewOpen(true);
+  //   } catch (err: any) {
+  //     console.error("Failed to load attachment:", err);
+  //     alert("Failed to load attachment. See console.");
+  //   } finally {
+  //     setPreviewLoading(false);
+  //   }
+  // };
+
+  const handleViewDocument = async (docRef: {
+    id: string;
+    name?: string;
+    type?: string;
+    size?: number;
+  }) => {
+    if (!docRef?.id) {
+      alert("Document ID missing.");
+      return;
+    }
+
+    try {
+      const attach = await fetchAttachmentDocById(docRef.id);
+      if (!attach) {
+        alert("Attachment not found.");
+        return;
+      }
+
+      // Prefer stored dataUrl, else generate from raw base64
+      const dataUrl =
+        attach.dataUrl ||
+        (attach.base64
+          ? normalizeToDataUrl(attach.base64, attach.mimeType ?? docRef.type)
+          : null);
+
+      if (!dataUrl) {
+        alert("No file data available.");
+        return;
+      }
+
+      // Convert to Blob
+      const blob = dataUrlToBlob(dataUrl);
+      const url = URL.createObjectURL(blob);
+
+      // Open in a new tab
+      window.open(url, "_blank");
+
+      // Optional: revoke URL after some time
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      console.error("Failed to load attachment:", err);
+      alert("Failed to load attachment.");
+    }
+  };
+
+  const handleClosePreview = () => {
+    setIsPreviewOpen(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
+    setPreviewName(null);
+    setPreviewMime(null);
+  };
+
   /* ---------- render ---------- */
   if (loading) {
     return <p className="p-6 text-gray-700">Loading course claim requests…</p>;
   }
 
   if (error) {
-    return (
-      <div className="p-6 text-red-600">
-        Error: {error}
-      </div>
-    );
+    return <div className="p-6 text-red-600">Error: {error}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Course Claim Requests</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Course Claim Requests
+        </h1>
         <button
           onClick={handleExport}
           className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -279,15 +398,11 @@ const CourseClaims: React.FC = () => {
                   <td className="py-4 px-4 text-sm text-gray-600">
                     {claim.agencyName}
                   </td>
-                  <td className="py-4 px-4">
-                    {getLevelBadge("temporary")}
-                  </td>
+                  <td className="py-4 px-4">{getLevelBadge("temporary")}</td>
                   <td className="py-4 px-4 text-sm text-gray-600">
                     {claim.submittedDate}
                   </td>
-                  <td className="py-4 px-4">
-                    {getStatusBadge(claim.status)}
-                  </td>
+                  <td className="py-4 px-4">{getStatusBadge(claim.status)}</td>
                   <td className="py-4 px-4">
                     <button
                       onClick={() => openModal(claim)}
@@ -333,7 +448,9 @@ const CourseClaims: React.FC = () => {
                 Page {currentPage} of {totalPages}
               </span>
               <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={currentPage === totalPages}
                 className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -451,17 +568,20 @@ const CourseClaims: React.FC = () => {
                             {doc.type} • {(doc.size / 1024).toFixed(1)} KB
                           </p>
                         </div>
-                      </div>
-                      {doc.url && (
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        >
+                        {/* <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                           View
-                        </a>
-                      )}
+                        </button> */}
+                      </div>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleViewDocument(doc);
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        View
+                      </a>
                     </div>
                   ))}
                 </div>

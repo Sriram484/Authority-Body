@@ -36,9 +36,7 @@ function AppContent() {
   /* ---------- NOT logged in: show auth screens ---------- */
   if (!user) {
     if (authView === "login") {
-      return (
-        <Login onNavigateToRegister={() => setAuthView("register")} />
-      );
+      return <Login onNavigateToRegister={() => setAuthView("register")} />;
     }
     return <Register onNavigateToLogin={() => setAuthView("login")} />;
   }
@@ -121,17 +119,11 @@ function AppContent() {
           />
         );
       case "claims":
-        return (
-          <CourseClaims          />
-        );
+        return <CourseClaims />;
       case "agencies":
-        return (
-          <Agencies/>
-        );
+        return <Agencies />;
       case "courses":
-        return (
-          <Courses/>
-        );
+        return <Courses />;
       case "profile":
         return <Profile />;
       default:
