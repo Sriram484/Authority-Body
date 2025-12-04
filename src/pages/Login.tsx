@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { Building2, Mail, Lock, AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { Building2, Mail, Lock, AlertCircle } from "lucide-react";
 
 interface LoginProps {
   onNavigateToRegister: () => void;
@@ -8,25 +8,27 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onNavigateToRegister }) => {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!email || !password) {
-      setError('Please enter both email and password');
+      setError("Please enter both email and password");
       return;
     }
 
-    const success = login(email, password);
+    const success = await login(email, password);
     if (!success) {
-      setError('Invalid credentials. Use admin@gmail.com / 123456');
+      setError(
+        "Invalid credentials or you are not authorised as an Authority Body user"
+      );
     }
   };
-
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">

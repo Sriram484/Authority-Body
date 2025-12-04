@@ -19,7 +19,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate }) => {
-  const { user, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const navigationItems = [
@@ -70,8 +70,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate }) =>
 
             <div className="flex items-center space-x-4">
               <div className="hidden lg:flex flex-col items-end">
-                <span className="text-sm font-medium text-gray-900">{user?.name}</span>
-                <span className="text-xs text-gray-500">{user?.role}</span>
+                <span className="text-sm font-medium text-gray-900">  {user?.email || "Authority Admin AAAA"}</span>
+                <span className="text-xs text-gray-500">  {role || "Authority Roleeeeeeeeeee"}</span>
               </div>
               <button
                 onClick={() => onNavigate('profile')}

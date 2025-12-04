@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// src/pages/Agencies.tsx
+import React, { useEffect, useState } from "react";
 import {
   Search,
   Plus,
@@ -12,65 +13,168 @@ import {
   MapPin,
   Globe,
   BookOpen,
-} from 'lucide-react';
-import { exportToCSV } from '../utils/exportCSV';
+} from "lucide-react";
+import { exportToCSV } from "../utils/exportCSV";
+import { useAuth } from "../context/AuthContext";
+import {
+  Agency,
+  AgencyInput,
+  getAgenciesForAuthority,
+  createAgencyForAuthority,
+  updateAgency,
+  deleteAgencyForAuthority,
+  updateAgencyAuthEmail,
+  deleteAgencyAuth,
+} from "../firebase/agency-service";
+import {
+  Course,
+  getCoursesForAuthority,
+  getCoursesForAgency,
+  addAgencyToCourse,
+  removeAgencyFromCourse,
+} from "../firebase/course-service";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase/firebase-config";
 
-interface AgenciesProps {
-  data: any;
-  onAddAgency: (agency: any) => void;
-  onUpdateAgency: (id: string, updates: any) => void;
-  onDeleteAgency: (id: string) => void;
-}
+const Agencies: React.FC = () => {
+  const { abId } = useAuth(); // authority UID from context
 
-const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, onDeleteAgency }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [coursesByAgency, setCoursesByAgency] = useState<
+    Record<string, Course[]>
+  >({});
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editingAgency, setEditingAgency] = useState<any>(null);
+  const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    adminEmail: '',
-    location: '',
-    phone: '',
-    website: '',
-    coursesOffered: '',
+    name: "",
+    adminEmail: "",
+    location: "",
+    phone: "",
+    website: "",
+    coursesOffered: "",
   });
 
-  const filteredAgencies = data.agencies.filter((agency: any) =>
-    agency.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agency.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agency.adminEmail.toLowerCase().includes(searchTerm.toLowerCase())
+  // for course multi-select
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [previousCourseIds, setPreviousCourseIds] = useState<string[]>([]);
+
+  // 1) Load agencies for this AB
+  useEffect(() => {
+    const load = async () => {
+      if (!abId) {
+        setError("No Authority Body context (abId missing).");
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        const data = await getAgenciesForAuthority(abId);
+        setAgencies(data);
+        setError(null);
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Failed to load agencies");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [abId]);
+
+  // 2) Load all courses for this AB (for multi-select list)
+  useEffect(() => {
+    const loadCourses = async () => {
+      if (!abId) return;
+      try {
+        const courses = await getCoursesForAuthority(abId);
+        setAllCourses(courses);
+      } catch (err) {
+        console.error("Failed to load courses for authority", err);
+      }
+    };
+    loadCourses();
+  }, [abId]);
+
+  // 3) Load per-agency linked courses (for "Courses Offered" chips)
+  useEffect(() => {
+    const loadCoursesForAll = async () => {
+      const map: Record<string, Course[]> = {};
+
+      for (const agency of agencies) {
+        // load agency doc to get authorityBodyIds
+        const agencySnap = await getDoc(
+          doc(db, "Assessment_Agencies", agency.id)
+        );
+        if (!agencySnap.exists()) continue;
+        const agencyData: any = agencySnap.data();
+        const authorityBodyIds: string[] = Array.isArray(
+          agencyData.authorityBodyIds
+        )
+          ? agencyData.authorityBodyIds
+          : [];
+
+        // courses for this agency + ABs
+        const courses = await getCoursesForAgency(agency.id, authorityBodyIds);
+        map[agency.id] = courses;
+      }
+
+      setCoursesByAgency(map);
+    };
+
+    if (agencies.length > 0) {
+      loadCoursesForAll();
+    } else {
+      setCoursesByAgency({});
+    }
+  }, [agencies]);
+
+  const filteredAgencies = agencies.filter(
+    (agency) =>
+      agency.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agency.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agency.adminEmail.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleExport = () => {
-    const exportData = filteredAgencies.map((a: any) => ({
+    const exportData = filteredAgencies.map((a) => ({
       ID: a.id,
       Name: a.name,
       Email: a.adminEmail,
       Location: a.location,
       Phone: a.phone,
       Website: a.website,
-      CoursesOffered: a.coursesOffered.join('; '),
+      CoursesOffered: (coursesByAgency[a.id] || [])
+        .map((c) => c.courseName)
+        .join("; "),
       Status: a.status,
       RegisteredDate: a.registeredDate,
       TotalCertificates: a.totalCertificates,
     }));
-    exportToCSV(exportData, 'agencies');
+    exportToCSV(exportData, "agencies");
   };
 
   const openAddModal = () => {
     setEditingAgency(null);
     setFormData({
-      name: '',
-      adminEmail: '',
-      location: '',
-      phone: '',
-      website: '',
-      coursesOffered: '',
+      name: "",
+      adminEmail: "",
+      location: "",
+      phone: "",
+      website: "",
+      coursesOffered: "",
     });
+    setSelectedCourseIds([]);
+    setPreviousCourseIds([]);
     setShowModal(true);
   };
 
-  const openEditModal = (agency: any) => {
+  const openEditModal = (agency: Agency) => {
     setEditingAgency(agency);
     setFormData({
       name: agency.name,
@@ -78,8 +182,15 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
       location: agency.location,
       phone: agency.phone,
       website: agency.website,
-      coursesOffered: agency.coursesOffered.join(', '),
+      coursesOffered: "", // no longer used directly – courses come from link
     });
+
+    const linkedCourses = coursesByAgency[agency.id] || [];
+    const ids = linkedCourses.map((c) => c.id);
+
+    setSelectedCourseIds(ids);
+    setPreviousCourseIds(ids);
+
     setShowModal(true);
   };
 
@@ -87,61 +198,170 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
     setShowModal(false);
     setEditingAgency(null);
     setFormData({
-      name: '',
-      adminEmail: '',
-      location: '',
-      phone: '',
-      website: '',
-      coursesOffered: '',
+      name: "",
+      adminEmail: "",
+      location: "",
+      phone: "",
+      website: "",
+      coursesOffered: "",
     });
+    setSelectedCourseIds([]);
+    setPreviousCourseIds([]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const toggleCourseSelection = (courseId: string) => {
+    setSelectedCourseIds((prev) =>
+      prev.includes(courseId)
+        ? prev.filter((id) => id !== courseId)
+        : [...prev, courseId]
+    );
+  };
+
+  const syncCoursesForAgency = async (
+    agencyId: string,
+    prevIds: string[],
+    nextIds: string[]
+  ) => {
+    const prevSet = new Set(prevIds);
+    const nextSet = new Set(nextIds);
+
+    const toAdd: string[] = [];
+    const toRemove: string[] = [];
+
+    allCourses.forEach((course) => {
+      const id = course.id;
+      const had = prevSet.has(id);
+      const hasNow = nextSet.has(id);
+
+      if (!had && hasNow) toAdd.push(id);
+      if (had && !hasNow) toRemove.push(id);
+    });
+
+    await Promise.all([
+      ...toAdd.map((id) => addAgencyToCourse(agencyId, id)),
+      ...toRemove.map((id) => removeAgencyFromCourse(agencyId, id)),
+    ]);
+
+    // update local map for UI
+    const updatedCourses = allCourses.filter((c) => nextSet.has(c.id));
+    setCoursesByAgency((prev) => ({
+      ...prev,
+      [agencyId]: updatedCourses,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name || !formData.adminEmail || !formData.location) {
-      alert('Please fill in all required fields');
+      alert("Please fill in all required fields");
+      return;
+    }
+    if (!abId) {
+      alert("No Authority Body id (abId). Cannot save agency.");
       return;
     }
 
-    const agencyData = {
+    const input: AgencyInput = {
       name: formData.name,
       adminEmail: formData.adminEmail,
       location: formData.location,
-      phone: formData.phone,
-      website: formData.website,
-      coursesOffered: formData.coursesOffered
-        .split(',')
-        .map(c => c.trim())
-        .filter(c => c),
-      status: 'Active',
+      phone: formData.phone || undefined,
+      website: formData.website || undefined,
+      // this text field is now optional / legacy; the real link is via courses
+      coursesOffered: [],
     };
 
-    if (editingAgency) {
-      onUpdateAgency(editingAgency.id, agencyData);
-    } else {
-      const newAgency = {
-        id: `ag-${Date.now()}`,
-        ...agencyData,
-        registeredDate: new Date().toISOString().split('T')[0],
-        totalCertificates: 0,
-      };
-      onAddAgency(newAgency);
-    }
+    try {
+      let agencyId: string;
 
-    closeModal();
+      if (editingAgency) {
+        const oldEmail = editingAgency.adminEmail;
+
+        // update existing
+        const updated = await updateAgency(editingAgency.id, input);
+        setAgencies((prev) =>
+          prev.map((a) => (a.id === updated.id ? updated : a))
+        );
+        agencyId = updated.id;
+
+        if (oldEmail !== formData.adminEmail) {
+          await updateAgencyAuthEmail(agencyId, formData.adminEmail);
+        }
+
+      } else {
+        // create new and link
+        const created = await createAgencyForAuthority(abId, input);
+        setAgencies((prev) => [...prev, created]);
+        agencyId = created.id;
+      }
+
+      // sync course links (aaIds)
+      await syncCoursesForAgency(
+        agencyId,
+        previousCourseIds,
+        selectedCourseIds
+      );
+
+      closeModal();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to save agency");
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this agency?')) {
-      onDeleteAgency(id);
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this agency?")) {
+      return;
+    }
+    if (!abId) {
+      alert("No Authority Body id (abId). Cannot delete agency.");
+      return;
+    }
+
+    try {
+      // 1) unlink from courses (remove aaIds)
+      const linkedCourses = coursesByAgency[id] || [];
+      await Promise.all(
+        linkedCourses.map((course) => removeAgencyFromCourse(id, course.id))
+      );
+
+      // 2) delete agency doc + unlink from Authority_Bodies
+      await deleteAgencyForAuthority(abId, id);
+
+      await deleteAgencyAuth(id, abId);
+
+
+      // 3) update local state
+      setAgencies((prev) => prev.filter((a) => a.id !== id));
+      setCoursesByAgency((prev) => {
+        const clone = { ...prev };
+        delete clone[id];
+        return clone;
+      });
+
+      // ⚠️ Auth user deletion is handled via backend – see below section.
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to delete agency");
     }
   };
+
+  if (loading) {
+    return <p className="p-6 text-gray-700">Loading agencies…</p>;
+  }
+
+  if (error) {
+    return <div className="p-6 text-red-600">Error: {error}</div>;
+  }
 
   return (
     <div className="space-y-6">
+      {/* header + search + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Assessment Agencies</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Assessment Agencies
+        </h1>
         <div className="flex space-x-2">
           <button
             onClick={handleExport}
@@ -160,6 +380,7 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
         </div>
       </div>
 
+      {/* cards */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="mb-6">
           <div className="relative">
@@ -174,8 +395,8 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredAgencies.map((agency: any) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl-grid-cols-3 gap-6">
+          {filteredAgencies.map((agency) => (
             <div
               key={agency.id}
               className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
@@ -186,7 +407,9 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
                     <Building2 className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{agency.name}</h3>
+                    <h3 className="font-semibold text-gray-900">
+                      {agency.name}
+                    </h3>
                     <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
                       {agency.status}
                     </span>
@@ -219,27 +442,27 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
                   <span className="font-medium">Courses Offered:</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {agency.coursesOffered.slice(0, 2).map((course: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded"
-                    >
-                      {course}
-                    </span>
-                  ))}
-                  {agency.coursesOffered.length > 2 && (
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      +{agency.coursesOffered.length - 2} more
-                    </span>
-                  )}
+                  {(coursesByAgency[agency.id] || [])
+                    .slice(0, 2)
+                    .map((course, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded"
+                      >
+                        {course.courseName}
+                      </span>
+                    ))}
+                  {coursesByAgency[agency.id] &&
+                    coursesByAgency[agency.id].length > 2 && (
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                        +{coursesByAgency[agency.id].length - 2} more
+                      </span>
+                    )}
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                <div className="text-sm">
-                  <span className="text-gray-600">Total Certificates: </span>
-                  <span className="font-semibold text-gray-900">{agency.totalCertificates}</span>
-                </div>
+                <div className="text-sm" />
                 <div className="flex space-x-2">
                   <button
                     onClick={() => openEditModal(agency)}
@@ -264,12 +487,13 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
         )}
       </div>
 
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
-                {editingAgency ? 'Edit Agency' : 'Add New Agency'}
+                {editingAgency ? "Edit Agency" : "Add New Agency"}
               </h2>
               <button
                 onClick={closeModal}
@@ -280,6 +504,7 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Basic fields */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Organization Name <span className="text-red-500">*</span>
@@ -287,7 +512,9 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Excellence Assessment Center"
                   required
@@ -301,7 +528,9 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
                 <input
                   type="email"
                   value={formData.adminEmail}
-                  onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, adminEmail: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="admin@agency.com"
                   required
@@ -315,7 +544,9 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
                 <input
                   type="text"
                   value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="New York, NY"
                   required
@@ -323,38 +554,72 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone
+                </label>
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="+1-555-0123"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Website
+                </label>
                 <input
                   type="url"
                   value={formData.website}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, website: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="https://agency.com"
                 />
               </div>
 
+              {/* Course multi-select */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Courses Offered (comma-separated)
+                  Link Courses to this Agency
                 </label>
-                <textarea
-                  value={formData.coursesOffered}
-                  onChange={(e) => setFormData({ ...formData, coursesOffered: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  placeholder="Course 1, Course 2, Course 3"
-                />
+                <div className="border border-gray-200 rounded-lg max-h-56 overflow-y-auto p-3 space-y-1">
+                  {allCourses.length === 0 && (
+                    <p className="text-xs text-gray-500">
+                      No courses available for this Authority Body.
+                    </p>
+                  )}
+                  {allCourses.map((course) => {
+                    const checked = selectedCourseIds.includes(course.id);
+                    return (
+                      <label
+                        key={course.id}
+                        className="flex items-start space-x-2 py-1 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1 rounded border-gray-300"
+                          checked={checked}
+                          onChange={() => toggleCourseSelection(course.id)}
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">
+                            {course.courseName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Code: {course.courseCode} • NSQF{" "}
+                            {course.nsqfLevel ?? "-"}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="flex space-x-3 pt-4">
@@ -369,7 +634,7 @@ const Agencies: React.FC<AgenciesProps> = ({ data, onAddAgency, onUpdateAgency, 
                   type="submit"
                   className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
-                  {editingAgency ? 'Update Agency' : 'Add Agency'}
+                  {editingAgency ? "Update Agency" : "Add Agency"}
                 </button>
               </div>
             </form>

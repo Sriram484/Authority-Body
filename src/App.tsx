@@ -1,27 +1,49 @@
-import { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Layout from './components/Layout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import CertificateRequests from './pages/CertificateRequests';
-import CourseClaims from './pages/CourseClaims';
-import Agencies from './pages/Agencies';
-import Courses from './pages/Courses';
-import Profile from './pages/Profile';
-import initialData from './data.json';
+import { useState, useEffect } from "react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Layout from "./components/Layout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import CertificateRequests from "./pages/CertificateRequests";
+import CourseClaims from "./pages/CourseClaims";
+import Agencies from "./pages/Agencies";
+import Courses from "./pages/Courses";
+import Profile from "./pages/Profile";
+import initialData from "./data.json";
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const { user, loading } = useAuth(); // ✅ from new AuthContext
+  const [authView, setAuthView] = useState<"login" | "register">("login");
+  const [currentPage, setCurrentPage] = useState("dashboard");
   const [appData, setAppData] = useState(initialData);
 
+  // when user logs in, go to dashboard
   useEffect(() => {
-    if (isAuthenticated) {
-      setCurrentPage('dashboard');
+    if (user) {
+      setCurrentPage("dashboard");
     }
-  }, [isAuthenticated]);
+  }, [user]);
+
+  /* ---------- loading state ---------- */
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-600">
+        Loading...
+      </div>
+    );
+  }
+
+  /* ---------- NOT logged in: show auth screens ---------- */
+  if (!user) {
+    if (authView === "login") {
+      return (
+        <Login onNavigateToRegister={() => setAuthView("register")} />
+      );
+    }
+    return <Register onNavigateToLogin={() => setAuthView("login")} />;
+  }
+
+  /* ---------- logged in: internal page navigation ---------- */
 
   const handleUpdateCertificateRequest = (id: string, updates: any) => {
     setAppData((prev) => ({
@@ -74,7 +96,9 @@ function AppContent() {
   const handleUpdateCourse = (id: string, updates: any) => {
     setAppData((prev) => ({
       ...prev,
-      courses: prev.courses.map((course) => (course.id === id ? { ...course, ...updates } : course)),
+      courses: prev.courses.map((course) =>
+        course.id === id ? { ...course, ...updates } : course
+      ),
     }));
   };
 
@@ -85,45 +109,30 @@ function AppContent() {
     }));
   };
 
-  if (!isAuthenticated) {
-    if (authView === 'login') {
-      return <Login onNavigateToRegister={() => setAuthView('register')} />;
-    }
-    return <Register onNavigateToLogin={() => setAuthView('login')} />;
-  }
-
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard':
+      case "dashboard":
         return <Dashboard data={appData} />;
-      case 'certificates':
+      case "certificates":
         return (
           <CertificateRequests
             data={appData}
             onUpdateRequest={handleUpdateCertificateRequest}
           />
         );
-      case 'claims':
-        return <CourseClaims data={appData} onUpdateClaim={handleUpdateCourseClaim} />;
-      case 'agencies':
+      case "claims":
         return (
-          <Agencies
-            data={appData}
-            onAddAgency={handleAddAgency}
-            onUpdateAgency={handleUpdateAgency}
-            onDeleteAgency={handleDeleteAgency}
-          />
+          <CourseClaims          />
         );
-      case 'courses':
+      case "agencies":
         return (
-          <Courses
-            data={appData}
-            onAddCourse={handleAddCourse}
-            onUpdateCourse={handleUpdateCourse}
-            onDeleteCourse={handleDeleteCourse}
-          />
+          <Agencies/>
         );
-      case 'profile':
+      case "courses":
+        return (
+          <Courses/>
+        );
+      case "profile":
         return <Profile />;
       default:
         return <Dashboard data={appData} />;
