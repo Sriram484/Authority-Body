@@ -1,0 +1,269 @@
+{
+  "admin": {
+    "id": "admin-1",
+    "name": "John Anderson",
+    "email": "admin@gmail.com",
+    "password": "123456",
+    "phone": "+1-555-0123",
+    "role": "Super Administrator",
+    "department": "Quality Assurance",
+    "joinedDate": "2020-01-15"
+  },
+  "agencies": [
+    {
+      "id": "ag-1",
+      "name": "Excellence Assessment Center",
+      "adminEmail": "admin@excellence.com",
+      "location": "New York, NY",
+      "phone": "+1-555-1001",
+      "website": "https://excellence.com",
+      "coursesOffered": ["Advanced Data Analytics", "Cloud Architecture"],
+      "status": "Active",
+      "registeredDate": "2022-03-15",
+      "totalCertificates": 145
+    },
+    {
+      "id": "ag-2",
+      "name": "National Skills Institute",
+      "adminEmail": "contact@nsi.org",
+      "location": "Los Angeles, CA",
+      "phone": "+1-555-2002",
+      "website": "https://nsi.org",
+      "coursesOffered": ["Cybersecurity Fundamentals", "Project Management Professional"],
+      "status": "Active",
+      "registeredDate": "2021-08-22",
+      "totalCertificates": 289
+    },
+    {
+      "id": "ag-3",
+      "name": "Premier Training Academy",
+      "adminEmail": "info@premier.edu",
+      "location": "Chicago, IL",
+      "phone": "+1-555-3003",
+      "website": "https://premier.edu",
+      "coursesOffered": ["Machine Learning Essentials"],
+      "status": "Active",
+      "registeredDate": "2023-01-10",
+      "totalCertificates": 67
+    }
+  ],
+  "courses": [
+    {
+      "id": "course-1",
+      "title": "Advanced Data Analytics",
+      "description": "Comprehensive program covering data mining, statistical analysis, and predictive modeling techniques for business intelligence.",
+      "tags": ["Data Science", "Analytics", "Business Intelligence"],
+      "duration": "12 weeks",
+      "level": "Advanced",
+      "status": "Active"
+    },
+    {
+      "id": "course-2",
+      "title": "Cloud Architecture",
+      "description": "Master cloud computing principles, AWS/Azure platforms, and design scalable cloud-based solutions.",
+      "tags": ["Cloud Computing", "AWS", "Azure", "DevOps"],
+      "duration": "10 weeks",
+      "level": "Intermediate",
+      "status": "Active"
+    },
+    {
+      "id": "course-3",
+      "title": "Cybersecurity Fundamentals",
+      "description": "Learn network security, ethical hacking, threat detection, and incident response strategies.",
+      "tags": ["Security", "Network", "Ethical Hacking"],
+      "duration": "8 weeks",
+      "level": "Beginner",
+      "status": "Active"
+    },
+    {
+      "id": "course-4",
+      "title": "Machine Learning Essentials",
+      "description": "Introduction to machine learning algorithms, neural networks, and practical AI applications.",
+      "tags": ["AI", "Machine Learning", "Python"],
+      "duration": "14 weeks",
+      "level": "Intermediate",
+      "status": "Active"
+    },
+    {
+      "id": "course-5",
+      "title": "Project Management Professional",
+      "description": "Prepare for PMP certification with comprehensive project management methodologies and best practices.",
+      "tags": ["Management", "Leadership", "PMP"],
+      "duration": "6 weeks",
+      "level": "Advanced",
+      "status": "Active"
+    }
+  ],
+  "certificateRequests": [
+    {
+      "id": "cert-1",
+      "agencyId": "ag-1",
+      "agencyName": "Excellence Assessment Center",
+      "courseId": "course-1",
+      "courseTitle": "Advanced Data Analytics",
+      "studentName": "Sarah Mitchell",
+      "studentEmail": "sarah.mitchell@email.com",
+      "studentId": "STU-2024-001",
+      "status": "Pending",
+      "submittedDate": "2024-11-28",
+      "documents": [
+        { "name": "Assessment_Report.pdf", "url": "#", "type": "Assessment Report" },
+        { "name": "Completion_Certificate.pdf", "url": "#", "type": "Completion Proof" },
+        { "name": "ID_Verification.pdf", "url": "#", "type": "Identity Verification" }
+      ],
+      "remarks": ""
+    },
+    {
+      "id": "cert-2",
+      "agencyId": "ag-2",
+      "agencyName": "National Skills Institute",
+      "courseId": "course-3",
+      "courseTitle": "Cybersecurity Fundamentals",
+      "studentName": "Michael Chen",
+      "studentEmail": "m.chen@email.com",
+      "studentId": "STU-2024-002",
+      "status": "Pending",
+      "submittedDate": "2024-11-29",
+      "documents": [
+        { "name": "Final_Exam_Results.pdf", "url": "#", "type": "Exam Results" },
+        { "name": "Course_Completion.pdf", "url": "#", "type": "Completion Proof" },
+        { "name": "Student_ID.pdf", "url": "#", "type": "Identity Verification" }
+      ],
+      "remarks": ""
+    },
+    {
+      "id": "cert-3",
+      "agencyId": "ag-1",
+      "agencyName": "Excellence Assessment Center",
+      "courseId": "course-2",
+      "courseTitle": "Cloud Architecture",
+      "studentName": "Emily Rodriguez",
+      "studentEmail": "emily.r@email.com",
+      "studentId": "STU-2024-003",
+      "status": "Approved",
+      "submittedDate": "2024-11-20",
+      "reviewedDate": "2024-11-25",
+      "documents": [
+        { "name": "Project_Portfolio.pdf", "url": "#", "type": "Project Work" },
+        { "name": "Assessment_Results.pdf", "url": "#", "type": "Assessment Report" },
+        { "name": "Verification_Docs.pdf", "url": "#", "type": "Identity Verification" }
+      ],
+      "remarks": "All documentation verified. Student demonstrated excellent understanding of cloud architecture principles."
+    },
+    {
+      "id": "cert-4",
+      "agencyId": "ag-3",
+      "agencyName": "Premier Training Academy",
+      "courseId": "course-4",
+      "courseTitle": "Machine Learning Essentials",
+      "studentName": "David Thompson",
+      "studentEmail": "david.t@email.com",
+      "studentId": "STU-2024-004",
+      "status": "Rejected",
+      "submittedDate": "2024-11-15",
+      "reviewedDate": "2024-11-22",
+      "documents": [
+        { "name": "Incomplete_Assessment.pdf", "url": "#", "type": "Assessment Report" }
+      ],
+      "remarks": "Assessment documentation incomplete. Missing final project submission and practical exam results."
+    },
+    {
+      "id": "cert-5",
+      "agencyId": "ag-2",
+      "agencyName": "National Skills Institute",
+      "courseId": "course-5",
+      "courseTitle": "Project Management Professional",
+      "studentName": "Lisa Anderson",
+      "studentEmail": "l.anderson@email.com",
+      "studentId": "STU-2024-005",
+      "status": "Pending",
+      "submittedDate": "2024-12-01",
+      "documents": [
+        { "name": "PMP_Assessment.pdf", "url": "#", "type": "Assessment Report" },
+        { "name": "Work_Experience.pdf", "url": "#", "type": "Experience Proof" },
+        { "name": "Training_Certificate.pdf", "url": "#", "type": "Completion Proof" },
+        { "name": "ID_Documents.pdf", "url": "#", "type": "Identity Verification" }
+      ],
+      "remarks": ""
+    }
+  ],
+  "courseClaimRequests": [
+    {
+      "id": "claim-1",
+      "agencyId": "ag-3",
+      "agencyName": "Premier Training Academy",
+      "courseTitle": "Blockchain Development Fundamentals",
+      "courseDescription": "Comprehensive training on blockchain technology, smart contracts, and decentralized applications.",
+      "proposedDuration": "10 weeks",
+      "proposedLevel": "Intermediate",
+      "proposedTags": ["Blockchain", "Cryptocurrency", "Smart Contracts", "Web3"],
+      "justification": "Growing demand in the market for blockchain developers. We have certified instructors with 5+ years experience in blockchain development and have successfully trained over 100 students in private sessions.",
+      "status": "Pending",
+      "submittedDate": "2024-11-25",
+      "documents": [
+        { "name": "Course_Curriculum.pdf", "url": "#", "type": "Curriculum" },
+        { "name": "Instructor_Credentials.pdf", "url": "#", "type": "Credentials" },
+        { "name": "Market_Research.pdf", "url": "#", "type": "Research" },
+        { "name": "Sample_Materials.pdf", "url": "#", "type": "Course Materials" }
+      ],
+      "remarks": ""
+    },
+    {
+      "id": "claim-2",
+      "agencyId": "ag-1",
+      "agencyName": "Excellence Assessment Center",
+      "courseTitle": "Digital Marketing Strategy",
+      "courseDescription": "Master modern digital marketing techniques including SEO, SEM, social media marketing, and analytics.",
+      "proposedDuration": "8 weeks",
+      "proposedLevel": "Beginner",
+      "proposedTags": ["Marketing", "SEO", "Social Media", "Analytics"],
+      "justification": "High demand from corporate clients. Our agency has partnerships with leading marketing firms and a proven track record in marketing education.",
+      "status": "Approved",
+      "submittedDate": "2024-11-10",
+      "reviewedDate": "2024-11-18",
+      "documents": [
+        { "name": "Detailed_Syllabus.pdf", "url": "#", "type": "Curriculum" },
+        { "name": "Faculty_Profiles.pdf", "url": "#", "type": "Credentials" },
+        { "name": "Industry_Partnerships.pdf", "url": "#", "type": "Partnerships" }
+      ],
+      "remarks": "Excellent curriculum design. Course aligns well with industry standards. Approved for immediate offering."
+    },
+    {
+      "id": "claim-3",
+      "agencyId": "ag-2",
+      "agencyName": "National Skills Institute",
+      "courseTitle": "IoT and Embedded Systems",
+      "courseDescription": "Learn Internet of Things architecture, sensor networks, and embedded programming.",
+      "proposedDuration": "12 weeks",
+      "proposedLevel": "Advanced",
+      "proposedTags": ["IoT", "Embedded Systems", "Hardware", "Sensors"],
+      "justification": "Expanding our technical offerings to meet industrial automation demand. We have state-of-the-art IoT lab facilities and experienced hardware engineers as instructors.",
+      "status": "Pending",
+      "submittedDate": "2024-11-28",
+      "documents": [
+        { "name": "Course_Outline.pdf", "url": "#", "type": "Curriculum" },
+        { "name": "Lab_Facilities.pdf", "url": "#", "type": "Infrastructure" },
+        { "name": "Instructor_Qualifications.pdf", "url": "#", "type": "Credentials" }
+      ],
+      "remarks": ""
+    },
+    {
+      "id": "claim-4",
+      "agencyId": "ag-3",
+      "agencyName": "Premier Training Academy",
+      "courseTitle": "Mobile App Development",
+      "courseDescription": "Build native and cross-platform mobile applications using React Native and Flutter.",
+      "proposedDuration": "10 weeks",
+      "proposedLevel": "Intermediate",
+      "proposedTags": ["Mobile Development", "React Native", "Flutter", "iOS", "Android"],
+      "justification": "Strong student interest in mobile development careers. Our instructors have published apps with over 1M downloads.",
+      "status": "Rejected",
+      "submittedDate": "2024-11-05",
+      "reviewedDate": "2024-11-12",
+      "documents": [
+        { "name": "Basic_Outline.pdf", "url": "#", "type": "Curriculum" }
+      ],
+      "remarks": "Insufficient documentation provided. Curriculum lacks depth in testing and deployment phases. Please resubmit with comprehensive course materials and detailed instructor credentials."
+    }
+  ]
+}
