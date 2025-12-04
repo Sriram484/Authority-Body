@@ -89,26 +89,6 @@ const Login: React.FC<LoginProps> = ({ onNavigateToRegister }) => {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-sm text-gray-600">
-              Don't have an account?{' '}
-              <button
-                onClick={onNavigateToRegister}
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Register here
-              </button>
-            </p>
-          </div>
-
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <p className="text-xs text-blue-800 font-medium mb-1">Demo Credentials:</p>
-            <p className="text-xs text-blue-700">
-              Email: admin@gmail.com
-              <br />
-              Password: 123456
-            </p>
-          </div>
         </div>
 
         <p className="text-center text-xs text-gray-500 mt-6">
