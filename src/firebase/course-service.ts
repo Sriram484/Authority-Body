@@ -24,11 +24,11 @@ export interface Course {
   courseCode: string;
   nsqfLevel: number | null;
   aaIds: string[];
-  abIds: string[];
+  abIds: string[];      // now stores Authority_Bodies document UIDs
   description: string;
-  tags: string[];         // 👈 UI badges (built from comma string in form)
+  tags: string[];       // UI badges
   duration: string;
-  level: string;          // Beginner / Intermediate / Advanced / etc
+  level: string;        // Beginner / Intermediate / Advanced / etc
   createdAt?: string;
   updatedAt?: string;
 }
@@ -71,7 +71,6 @@ const normalizeCourse = (snap: QueryDocumentSnapshot | any): Course => {
   if (Array.isArray(raw.tags)) {
     tags = raw.tags;
   } else if (typeof raw.tags === "string") {
-    // support tags stored as comma-separated string
     tags = raw.tags
       .split(",")
       .map((t: string) => t.trim())
@@ -94,32 +93,21 @@ const normalizeCourse = (snap: QueryDocumentSnapshot | any): Course => {
   };
 };
 
-/** Get AB “code” (like "ab203") from Authority_Bodies/{abUid} */
-async function getAuthorityCode(abUid: string): Promise<string | null> {
-  if (!abUid) return null;
-  const abRef = doc(db, "Authority_Bodies", abUid);
-  const abSnap = await getDoc(abRef);
-  if (!abSnap.exists()) return null;
-  const data: any = abSnap.data();
-  return data.abId || null; // e.g. "ab203"
-}
-
-/* ---------- READ: list courses for an Authority Body ---------- */
+/* ---------- READ: list courses for an Authority Body (by UID) ---------- */
 
 export async function getCoursesForAuthority(
   abUid: string
 ): Promise<Course[]> {
-  const abCode = await getAuthorityCode(abUid);
-  if (!abCode) return [];
+  if (!abUid) return [];
 
   const colRef = collection(db, "courses");
-  const q = query(colRef, where("abIds", "array-contains", abCode));
+  const q = query(colRef, where("abIds", "array-contains", abUid));
   const snap = await getDocs(q);
 
   return snap.docs.map(normalizeCourse);
 }
 
-/* ---------- READ: courses for a specific agency + AB ---------- */
+/* ---------- READ: courses for a specific agency + AB (by UID) ---------- */
 
 export async function getCoursesForAgency(
   agencyUid: string,
@@ -162,15 +150,14 @@ export async function removeAgencyFromCourse(
   });
 }
 
-/* ---------- CREATE: only for this AB ---------- */
+/* ---------- CREATE: abIds now stores AB UID ---------- */
 
 export async function createCourseForAuthority(
   abUid: string,
   input: CourseCreateInput
 ): Promise<Course> {
-  const abCode = await getAuthorityCode(abUid);
-  if (!abCode) {
-    throw new Error("Authority Body code (abId) not found");
+  if (!abUid) {
+    throw new Error("Authority Body UID is required");
   }
 
   const colRef = collection(db, "courses");
@@ -186,10 +173,9 @@ export async function createCourseForAuthority(
     courseCode: generateCode(),
     nsqfLevel:
       typeof input.nsqfLevel === "number" ? input.nsqfLevel : null,
-    abIds: [abCode],
+    abIds: [abUid],      // ✅ store UID here
     aaIds: [],
     description: input.description || "",
-    // store as array; you typed comma string in UI
     tags: input.tags || [],
     duration: input.duration || "",
     level: input.level || "",
@@ -202,16 +188,15 @@ export async function createCourseForAuthority(
   return normalizeCourse(snap as any);
 }
 
-/* ---------- UPDATE: only if this AB is in abIds ---------- */
+/* ---------- UPDATE: only if this AB UID is in abIds ---------- */
 
 export async function updateCourseForAuthority(
   abUid: string,
   courseId: string,
   updates: CourseUpdateInput
 ): Promise<Course> {
-  const abCode = await getAuthorityCode(abUid);
-  if (!abCode) {
-    throw new Error("Authority Body code (abId) not found");
+  if (!abUid) {
+    throw new Error("Authority Body UID is required");
   }
 
   const courseRef = doc(db, "courses", courseId);
@@ -225,7 +210,7 @@ export async function updateCourseForAuthority(
     const data: any = snap.data();
     const abIds: string[] = Array.isArray(data.abIds) ? data.abIds : [];
 
-    if (!abIds.includes(abCode)) {
+    if (!abIds.includes(abUid)) {
       throw new Error("Not authorised to update this course");
     }
 
@@ -268,15 +253,14 @@ export async function updateCourseForAuthority(
   return normalizeCourse(newSnap as any);
 }
 
-/* ---------- DELETE: only if this AB is in abIds ---------- */
+/* ---------- DELETE: only if this AB UID is in abIds ---------- */
 
 export async function deleteCourseForAuthority(
   abUid: string,
   courseId: string
 ): Promise<void> {
-  const abCode = await getAuthorityCode(abUid);
-  if (!abCode) {
-    throw new Error("Authority Body code (abId) not found");
+  if (!abUid) {
+    throw new Error("Authority Body UID is required");
   }
 
   const courseRef = doc(db, "courses", courseId);
@@ -290,7 +274,7 @@ export async function deleteCourseForAuthority(
     const data: any = snap.data();
     const abIds: string[] = Array.isArray(data.abIds) ? data.abIds : [];
 
-    if (!abIds.includes(abCode)) {
+    if (!abIds.includes(abUid)) {
       throw new Error("Not authorised to delete this course");
     }
 

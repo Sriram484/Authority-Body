@@ -1,4 +1,4 @@
-// src/firebase/certificate-request-service.ts
+// src/firebase/certificate-service.ts
 import {
   collection,
   getDocs,
@@ -11,7 +11,10 @@ import {
   DocumentData,
   writeBatch,
   arrayUnion,
+  query,
+  where,
 } from "firebase/firestore";
+
 import { db } from "./firebase-config";
 
 /** Types **/
@@ -45,19 +48,139 @@ export interface CertificateRequestDoc {
   [k: string]: any;
 }
 
-/** Firestore helpers **/
+// src/firebase/certificate-request-service.ts
 
-/**
- * Load all CertificateApprovalRequest docs (non-paginated).
- * Normalizes to CertificateRequestDoc[].
+/** Load all CertificateApprovalRequest docs (non-paginated),
+ * and enrich with student & course names.
  */
+// src/firebase/certificate-request-service.ts
+
 export async function getCertificateRequests(): Promise<
   CertificateRequestDoc[]
 > {
   const col = collection(db, "CertificateApprovalRequest");
   const snap = await getDocs(col);
-  return snap.docs.map((d) => normalizeRequestDoc(d.id, d.data()));
+
+  // 1) Normalize base requests
+  const baseRequests: CertificateRequestDoc[] = snap.docs.map((d) =>
+    normalizeRequestDoc(d.id, d.data())
+  );
+  if (baseRequests.length === 0) return [];
+
+  // 2) Collect IDs for joins
+  const studentIds = Array.from(
+    new Set(
+      baseRequests
+        .map((r) => r.studentId)
+        .filter((id): id is string => !!id)
+    )
+  );
+  const courseIds = Array.from(
+    new Set(
+      baseRequests
+        .map((r) => r.courseId)
+        .filter((id): id is string => !!id)
+    )
+  );
+  const agencyIds = Array.from(
+    new Set(
+      baseRequests
+        .map((r) => r.agencyUserId)
+        .filter((id): id is string => !!id)
+    )
+  );
+
+  /* ---------- Students join (students collection) ---------- */
+
+  type StudentRecord = { fullName?: string; email?: string };
+  const studentsMap = new Map<string, StudentRecord>();
+
+  if (studentIds.length > 0) {
+    const studentsCol = collection(db, "students"); // matches your schema
+    for (let i = 0; i < studentIds.length; i += 10) {
+      const chunk = studentIds.slice(i, i + 10); // Firestore 'in' max 10
+      const qSt = query(studentsCol, where("__name__", "in", chunk));
+      const stSnap = await getDocs(qSt);
+      stSnap.forEach((docSnap) => {
+        const data = docSnap.data() as any;
+        studentsMap.set(docSnap.id, {
+          fullName: data.fullName || data.name || "",
+          email: data.email || "",
+        });
+      });
+    }
+  }
+
+  /* ---------- Courses join (courses collection) ---------- */
+
+  type CourseRecord = { courseName?: string };
+  const coursesMap = new Map<string, CourseRecord>();
+
+  if (courseIds.length > 0) {
+    const coursesCol = collection(db, "courses");
+    for (let i = 0; i < courseIds.length; i += 10) {
+      const chunk = courseIds.slice(i, i + 10);
+      const qCr = query(coursesCol, where("__name__", "in", chunk));
+      const crSnap = await getDocs(qCr);
+      crSnap.forEach((docSnap) => {
+        const data = docSnap.data() as any;
+        coursesMap.set(docSnap.id, {
+          courseName: data.courseName || data.name || "",
+        });
+      });
+    }
+  }
+
+  /* ---------- Agencies join (Assessment_Agencies collection) ---------- */
+
+  type AgencyRecord = { organisation?: string; name?: string };
+  const agenciesMap = new Map<string, AgencyRecord>();
+
+  if (agencyIds.length > 0) {
+    const agenciesCol = collection(db, "Assessment_Agencies");
+    for (let i = 0; i < agencyIds.length; i += 10) {
+      const chunk = agencyIds.slice(i, i + 10);
+      const qAg = query(agenciesCol, where("__name__", "in", chunk));
+      const agSnap = await getDocs(qAg);
+      agSnap.forEach((docSnap) => {
+        const data = docSnap.data() as any;
+        agenciesMap.set(docSnap.id, {
+          organisation: data.organisation || "",
+          name: data.name || "",
+        });
+      });
+    }
+  }
+
+  /* ---------- Enrich base requests with names ---------- */
+
+  const enriched: CertificateRequestDoc[] = baseRequests.map((r) => {
+    const studentInfo = r.studentId ? studentsMap.get(r.studentId) : undefined;
+    const courseInfo = r.courseId ? coursesMap.get(r.courseId) : undefined;
+    const agencyInfo = r.agencyUserId
+      ? agenciesMap.get(r.agencyUserId)
+      : undefined;
+
+    return {
+      ...r,
+      studentName:
+        r.studentName ?? studentInfo?.fullName ?? null,
+      studentEmail:
+        r.studentEmail ?? studentInfo?.email ?? null,
+      courseTitle:
+        r.courseTitle ?? courseInfo?.courseName ?? null,
+      agencyName:
+        r.agencyName ??
+        agencyInfo?.organisation ??
+        agencyInfo?.name ??
+        null,
+    };
+  });
+
+  return enriched;
 }
+
+
 
 /** Normalize a raw doc into our UI-friendly type */
 export function normalizeRequestDoc(
@@ -67,19 +190,19 @@ export function normalizeRequestDoc(
   const attachments =
     Array.isArray(raw.attachments) && raw.attachments.length > 0
       ? raw.attachments.map((a: any) => ({
-          id: a.id,
-          name: a.name ?? a.filename ?? null,
-          type: a.type ?? a.mime ?? null,
-          size: a.size ?? null,
-        }))
+        id: a.id,
+        name: a.name ?? a.filename ?? null,
+        type: a.type ?? a.mime ?? null,
+        size: a.size ?? null,
+      }))
       : Array.isArray(raw.documents)
-      ? raw.documents.map((a: any) => ({
+        ? raw.documents.map((a: any) => ({
           id: a.id,
           name: a.name ?? a.filename ?? null,
           type: a.type ?? a.mime ?? null,
           size: a.size ?? null,
         }))
-      : [];
+        : [];
 
   return {
     id,

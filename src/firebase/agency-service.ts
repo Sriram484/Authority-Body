@@ -10,9 +10,12 @@ import {
   arrayRemove,
   serverTimestamp,
   QueryDocumentSnapshot,
+  getDocs,
+  query,
+  where,
+  setDoc,                 // 👈 ADD THIS
 } from "firebase/firestore";
 import { db } from "./firebase-config";
-
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
@@ -75,40 +78,27 @@ const normalizeAgency = (snap: QueryDocumentSnapshot | any): Agency => {
 
 /**
  * Get all Assessment_Agencies linked to an Authority Body
- * using Authority_Bodies/{authorityUid}.AssessmentAgencyIds
+ * using Assessment_Agencies.authorityBodyIds contains authorityUid
  */
 export async function getAgenciesForAuthority(
   authorityUid: string
 ): Promise<Agency[]> {
-    
   if (!authorityUid) return [];
 
-  const abRef = doc(db, "Authority_Bodies", authorityUid);
-  const abSnap = await getDoc(abRef);
-  if (!abSnap.exists()) return [];
-  
-  const abData: any = abSnap.data();
-  const agencyIds: string[] = Array.isArray(abData.AssessmentAgencyIds)
-    ? abData.AssessmentAgencyIds
-    : [];
-
-    
-  if (agencyIds.length === 0) return [];
-
-  const docs = await Promise.all(
-    agencyIds.map((id) => getDoc(doc(db, "Assessment_Agencies", id)))
+  const q = query(
+    collection(db, "Assessment_Agencies"),
+    where("authorityBodyIds", "array-contains", authorityUid)
   );
 
-  return docs
-    .filter((d) => d.exists())
-    .map((d) => normalizeAgency(d as any));
+  const snap = await getDocs(q);
+  if (snap.empty) return [];
+  return snap.docs.map((d) => normalizeAgency(d as any));
 }
 
 /**
  * Create a new assessment agency via backend:
- *  - creates Auth user
- *  - creates Assessment_Agencies doc (id = uid)
- *  - links uid in Authority_Bodies.AssessmentAgencyIds
+ *  - backend creates Auth user + basic Assessment_Agencies doc
+ *  - here we patch location/phone/website/coursesOffered into that doc
  */
 export async function createAgencyForAuthority(
   authorityUid: string,
@@ -118,12 +108,12 @@ export async function createAgencyForAuthority(
     throw new Error("authorityUid is required");
   }
 
+  // 1) Ask backend to create auth user + base agency doc
   const body = {
     email: input.adminEmail,
     organisation: input.name,
     authorityUid,
-    // optional: send custom temp password or let backend default
-    // password: "SomeTemp#123",
+    // you can optionally pass temp password etc
   };
 
   const res = await fetch(`${API_BASE}/api/create-assessment-admin`, {
@@ -135,28 +125,39 @@ export async function createAgencyForAuthority(
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}));
     throw new Error(
-      errBody.error || `Failed to create assessment admin (status ${res.status})`
+      errBody.error ||
+        `Failed to create assessment admin (status ${res.status})`
     );
   }
 
   const data = await res.json();
   const uid: string = data.uid;
-  const agencyDoc: any = data.agencyDoc || {};
 
-  // Build a fake snapshot so we can reuse normalizeAgency
-  const fakeSnap = {
-    id: uid,
-    data: () => ({
-      ...agencyDoc,
-      // include location/phone/website if user typed those in UI
+  // 2) Patch extra fields into Assessment_Agencies/{uid}
+  const agencyRef = doc(db, "Assessment_Agencies", uid);
+
+  await setDoc(
+    agencyRef,
+    {
+      // profile fields from UI
+      organisation: input.name,
+      email: input.adminEmail,
       location: input.location,
       phone: input.phone || "",
       website: input.website || "",
-      coursesOffered: input.coursesOffered,
-    }),
-  };
+      coursesOffered: input.coursesOffered || [],
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true } // 👈 merge so we don't overwrite what backend set
+  );
 
-  return normalizeAgency(fakeSnap as any);
+  // 3) Read the final doc from Firestore and normalize
+  const snap = await getDoc(agencyRef);
+  if (!snap.exists()) {
+    throw new Error("Agency not found after creation");
+  }
+
+  return normalizeAgency(snap as any);
 }
 
 
@@ -169,6 +170,8 @@ export async function updateAgency(
 ): Promise<Agency> {
   const ref = doc(db, "Assessment_Agencies", agencyId);
 
+  console.log("Updating agency:", agencyId, input);
+
   const payload: any = {
     organisation: input.name,
     email: input.adminEmail,
@@ -178,6 +181,8 @@ export async function updateAgency(
     coursesOffered: input.coursesOffered,
     updatedAt: serverTimestamp(),
   };
+
+  console.log("Updating agency with payload:", payload);
 
   await updateDoc(ref, payload);
   const snap = await getDoc(ref);
@@ -198,15 +203,15 @@ export async function deleteAgencyForAuthority(
 ): Promise<void> {
   if (!authorityUid || !agencyId) return;
 
-  const abRef = doc(db, "Authority_Bodies", authorityUid);
   const agencyRef = doc(db, "Assessment_Agencies", agencyId);
 
-  // unlink and delete
-  await updateDoc(abRef, {
-    AssessmentAgencyIds: arrayRemove(agencyId),
+  // 1) unlink this AB from the agency's authorityBodyIds
+  await updateDoc(agencyRef, {
+    authorityBodyIds: arrayRemove(authorityUid),
     updatedAt: serverTimestamp(),
   });
 
+  // 2) delete the agency doc itself
   await deleteDoc(agencyRef);
 }
 

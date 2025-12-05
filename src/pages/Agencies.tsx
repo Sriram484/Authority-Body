@@ -33,8 +33,7 @@ import {
   addAgencyToCourse,
   removeAgencyFromCourse,
 } from "../firebase/course-service";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase/firebase-config";
+
 
 const Agencies: React.FC = () => {
   const { abId } = useAuth(); // authority UID from context
@@ -104,23 +103,13 @@ const Agencies: React.FC = () => {
   // 3) Load per-agency linked courses (for "Courses Offered" chips)
   useEffect(() => {
     const loadCoursesForAll = async () => {
+      if (!abId) return;
+
       const map: Record<string, Course[]> = {};
 
       for (const agency of agencies) {
-        // load agency doc to get authorityBodyIds
-        const agencySnap = await getDoc(
-          doc(db, "Assessment_Agencies", agency.id)
-        );
-        if (!agencySnap.exists()) continue;
-        const agencyData: any = agencySnap.data();
-        const authorityBodyIds: string[] = Array.isArray(
-          agencyData.authorityBodyIds
-        )
-          ? agencyData.authorityBodyIds
-          : [];
-
-        // courses for this agency + ABs
-        const courses = await getCoursesForAgency(agency.id, authorityBodyIds);
+        // just use the current Authority Body id
+        const courses = await getCoursesForAgency(agency.id, [abId]);
         map[agency.id] = courses;
       }
 
@@ -132,7 +121,7 @@ const Agencies: React.FC = () => {
     } else {
       setCoursesByAgency({});
     }
-  }, [agencies]);
+  }, [agencies, abId]);
 
   const filteredAgencies = agencies.filter(
     (agency) =>
@@ -182,10 +171,10 @@ const Agencies: React.FC = () => {
       location: agency.location,
       phone: agency.phone,
       website: agency.website,
-      coursesOffered: "", // no longer used directly – courses come from link
+      coursesOffered: "",
     });
 
-    const linkedCourses = coursesByAgency[agency.id] || [];
+    const linkedCourses = getLinkedCoursesForAgency(agency);
     const ids = linkedCourses.map((c) => c.id);
 
     setSelectedCourseIds(ids);
@@ -225,24 +214,16 @@ const Agencies: React.FC = () => {
     const prevSet = new Set(prevIds);
     const nextSet = new Set(nextIds);
 
-    const toAdd: string[] = [];
-    const toRemove: string[] = [];
+    const toAdd = nextIds.filter((id) => !prevSet.has(id)); // newly checked
+    const toRemove = prevIds.filter((id) => !nextSet.has(id)); // unchecked
 
-    allCourses.forEach((course) => {
-      const id = course.id;
-      const had = prevSet.has(id);
-      const hasNow = nextSet.has(id);
-
-      if (!had && hasNow) toAdd.push(id);
-      if (had && !hasNow) toRemove.push(id);
-    });
-
+    // ⚠️ Make sure this matches your course-service signature
     await Promise.all([
-      ...toAdd.map((id) => addAgencyToCourse(agencyId, id)),
-      ...toRemove.map((id) => removeAgencyFromCourse(agencyId, id)),
+      ...toAdd.map((courseId) => addAgencyToCourse(agencyId, courseId)),
+      ...toRemove.map((courseId) => removeAgencyFromCourse(agencyId, courseId)),
     ]);
 
-    // update local map for UI
+    // update local UI cache
     const updatedCourses = allCourses.filter((c) => nextSet.has(c.id));
     setCoursesByAgency((prev) => ({
       ...prev,
@@ -262,14 +243,14 @@ const Agencies: React.FC = () => {
       return;
     }
 
+    console.log("Submitting agency form:", formData, selectedCourseIds);
     const input: AgencyInput = {
       name: formData.name,
       adminEmail: formData.adminEmail,
       location: formData.location,
       phone: formData.phone || undefined,
       website: formData.website || undefined,
-      // this text field is now optional / legacy; the real link is via courses
-      coursesOffered: [],
+      coursesOffered: selectedCourseIds,
     };
 
     try {
@@ -288,7 +269,6 @@ const Agencies: React.FC = () => {
         if (oldEmail !== formData.adminEmail) {
           await updateAgencyAuthEmail(agencyId, formData.adminEmail);
         }
-
       } else {
         // create new and link
         const created = await createAgencyForAuthority(abId, input);
@@ -331,7 +311,6 @@ const Agencies: React.FC = () => {
 
       await deleteAgencyAuth(id, abId);
 
-
       // 3) update local state
       setAgencies((prev) => prev.filter((a) => a.id !== id));
       setCoursesByAgency((prev) => {
@@ -354,6 +333,21 @@ const Agencies: React.FC = () => {
   if (error) {
     return <div className="p-6 text-red-600">Error: {error}</div>;
   }
+
+  const getLinkedCoursesForAgency = (agency: Agency): Course[] => {
+    // 1) Prefer the already-resolved coursesByAgency map
+    const fromMap = coursesByAgency[agency.id];
+    if (fromMap && fromMap.length > 0) {
+      return fromMap;
+    }
+
+    // 2) Fallback: derive from agency.coursesOffered + allCourses
+    if (!agency.coursesOffered || agency.coursesOffered.length === 0) {
+      return [];
+    }
+
+    return allCourses.filter((c) => agency.coursesOffered.includes(c.id));
+  };
 
   return (
     <div className="space-y-6">
@@ -395,7 +389,7 @@ const Agencies: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl-grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredAgencies.map((agency) => (
             <div
               key={agency.id}
@@ -441,24 +435,35 @@ const Agencies: React.FC = () => {
                   <BookOpen className="w-4 h-4" />
                   <span className="font-medium">Courses Offered:</span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {(coursesByAgency[agency.id] || [])
-                    .slice(0, 2)
-                    .map((course, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded"
-                      >
-                        {course.courseName}
-                      </span>
-                    ))}
-                  {coursesByAgency[agency.id] &&
-                    coursesByAgency[agency.id].length > 2 && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                        +{coursesByAgency[agency.id].length - 2} more
-                      </span>
-                    )}
-                </div>
+
+                {(() => {
+                  const linkedCourses = getLinkedCoursesForAgency(agency);
+
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      {linkedCourses.slice(0, 2).map((course) => (
+                        <span
+                          key={course.id}
+                          className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded"
+                        >
+                          {course.courseName}
+                        </span>
+                      ))}
+
+                      {linkedCourses.length > 2 && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                          +{linkedCourses.length - 2} more
+                        </span>
+                      )}
+
+                      {linkedCourses.length === 0 && (
+                        <span className="text-xs text-gray-400">
+                          No courses linked
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-200">
