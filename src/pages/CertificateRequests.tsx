@@ -1,7 +1,7 @@
 // src/components/CertificateRequests.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   Filter,
@@ -48,7 +48,7 @@ export default function CertificateRequests() {
     (async () => {
       try {
         setLoading(true);
-        const data = await getCertificateRequests();
+        const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
         setRequests(data);
         setError(null);
       } catch (err: any) {
@@ -167,7 +167,7 @@ export default function CertificateRequests() {
 
       console.log("Moved to AcceptedCertificates id:", acceptedId);
 
-      const data = await getCertificateRequests();
+      const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
       setRequests(data);
       closeModal();
     } catch (err: any) {
@@ -188,7 +188,7 @@ export default function CertificateRequests() {
         rejectionComments: remarks,
         reviewedAt: new Date().toISOString(),
       });
-      const data = await getCertificateRequests();
+      const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
       setRequests(data);
       closeModal();
     } catch (err: any) {

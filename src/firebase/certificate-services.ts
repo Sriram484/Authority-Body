@@ -55,11 +55,28 @@ export interface CertificateRequestDoc {
  */
 // src/firebase/certificate-request-service.ts
 
-export async function getCertificateRequests(): Promise<
-  CertificateRequestDoc[]
-> {
-  const col = collection(db, "CertificateApprovalRequest");
-  const snap = await getDocs(col);
+// src/firebase/certificate-service.ts (or certificate-request-service.ts)
+
+export async function getCertificateRequests(opts?: {
+  authorityBodyId?: string;
+}): Promise<CertificateRequestDoc[]> {
+  const colRef = collection(db, "CertificateApprovalRequest");
+  
+  console.log("@@@@@@@220",opts?.authorityBodyId);
+  
+
+  // If authorityBodyId provided, filter by it
+  let snap;
+  if (opts?.authorityBodyId) {
+    const qRef = query(
+      colRef,
+      where("authorityBodies", "array-contains", opts.authorityBodyId)
+    );
+    snap = await getDocs(qRef);
+  } else {
+    // fallback: load all (old behaviour)
+    snap = await getDocs(colRef);
+  }
 
   // 1) Normalize base requests
   const baseRequests: CertificateRequestDoc[] = snap.docs.map((d) =>
@@ -90,15 +107,14 @@ export async function getCertificateRequests(): Promise<
     )
   );
 
-  /* ---------- Students join (students collection) ---------- */
-
+  // --- Students join ---
   type StudentRecord = { fullName?: string; email?: string };
   const studentsMap = new Map<string, StudentRecord>();
 
   if (studentIds.length > 0) {
-    const studentsCol = collection(db, "students"); // matches your schema
+    const studentsCol = collection(db, "students");
     for (let i = 0; i < studentIds.length; i += 10) {
-      const chunk = studentIds.slice(i, i + 10); // Firestore 'in' max 10
+      const chunk = studentIds.slice(i, i + 10);
       const qSt = query(studentsCol, where("__name__", "in", chunk));
       const stSnap = await getDocs(qSt);
       stSnap.forEach((docSnap) => {
@@ -111,8 +127,7 @@ export async function getCertificateRequests(): Promise<
     }
   }
 
-  /* ---------- Courses join (courses collection) ---------- */
-
+  // --- Courses join ---
   type CourseRecord = { courseName?: string };
   const coursesMap = new Map<string, CourseRecord>();
 
@@ -131,8 +146,7 @@ export async function getCertificateRequests(): Promise<
     }
   }
 
-  /* ---------- Agencies join (Assessment_Agencies collection) ---------- */
-
+  // --- Agencies join ---
   type AgencyRecord = { organisation?: string; name?: string };
   const agenciesMap = new Map<string, AgencyRecord>();
 
@@ -152,8 +166,7 @@ export async function getCertificateRequests(): Promise<
     }
   }
 
-  /* ---------- Enrich base requests with names ---------- */
-
+  // --- Enrich base requests ---
   const enriched: CertificateRequestDoc[] = baseRequests.map((r) => {
     const studentInfo = r.studentId ? studentsMap.get(r.studentId) : undefined;
     const courseInfo = r.courseId ? coursesMap.get(r.courseId) : undefined;
@@ -163,22 +176,17 @@ export async function getCertificateRequests(): Promise<
 
     return {
       ...r,
-      studentName:
-        r.studentName ?? studentInfo?.fullName ?? null,
-      studentEmail:
-        r.studentEmail ?? studentInfo?.email ?? null,
-      courseTitle:
-        r.courseTitle ?? courseInfo?.courseName ?? null,
+      studentName: r.studentName ?? studentInfo?.fullName ?? null,
+      studentEmail: r.studentEmail ?? studentInfo?.email ?? null,
+      courseTitle: r.courseTitle ?? courseInfo?.courseName ?? null,
       agencyName:
-        r.agencyName ??
-        agencyInfo?.organisation ??
-        agencyInfo?.name ??
-        null,
+        r.agencyName ?? agencyInfo?.organisation ?? agencyInfo?.name ?? null,
     };
   });
 
   return enriched;
 }
+
 
 
 
