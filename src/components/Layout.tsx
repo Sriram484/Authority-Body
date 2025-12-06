@@ -1,5 +1,5 @@
-import React from 'react';
-import { useAuth } from '../context/AuthContext';
+import React from "react";
+import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard,
   FileCheck,
@@ -8,9 +8,7 @@ import {
   BookOpen,
   User,
   LogOut,
-  Menu,
-  X,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,156 +16,184 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate }) => {
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  currentPage,
+  onNavigate,
+}) => {
   const { user, role, logout } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [mobileProfileOpen, setMobileProfileOpen] = React.useState(false);
 
   const navigationItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'certificates', label: 'Certificate Requests', icon: FileCheck },
-    { id: 'claims', label: 'Course Claims', icon: FileText },
-    { id: 'agencies', label: 'Agencies', icon: Building2 },
-    { id: 'courses', label: 'Courses', icon: BookOpen },
-    { id: 'profile', label: 'Profile', icon: User },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "certificates", label: "Certificate Requests", icon: FileCheck },
+    { id: "claims", label: "Course Claims", icon: FileText },
+    { id: "agencies", label: "Agencies", icon: Building2 },
+    { id: "courses", label: "Courses", icon: BookOpen },
+    { id: "profile", label: "Profile", icon: User },
   ];
 
+  const primaryNavItems = navigationItems.slice(0, 5); // for mobile bottom nav
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-50 hidden md:block">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900">Authority Portal</h1>
-                  <p className="text-xs text-gray-500">Admin Dashboard</p>
-                </div>
-              </div>
-
-              <div className="flex space-x-1">
-                {navigationItems.slice(0, 5).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => onNavigate(item.id)}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        currentPage === item.id
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span className="hidden lg:inline">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="hidden lg:flex flex-col items-end">
-                <span className="text-sm font-medium text-gray-900">  {user?.email || "Authority Admin AAAA"}</span>
-                <span className="text-xs text-gray-500">  {role || "Authority Roleeeeeeeeeee"}</span>
-              </div>
-              <button
-                onClick={() => onNavigate('profile')}
-                className={`p-2 rounded-lg transition-colors ${
-                  currentPage === 'profile'
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <User className="w-5 h-5" />
-              </button>
-              <button
-                onClick={logout}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* ===== DESKTOP SIDEBAR (md+) ===== */}
+      <aside className="hidden md:flex md:flex-col md:w-64 bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-40">
+        {/* Brand */}
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-200">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+            <Building2 className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-gray-900">
+              Authority Portal
+            </h1>
+            <p className="text-xs text-gray-500">Admin Dashboard</p>
           </div>
         </div>
-      </nav>
 
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="flex justify-between items-center px-4 h-16">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Authority Portal</h1>
-            </div>
-          </div>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {mobileMenuOpen && (
-          <div className="absolute top-16 left-0 right-0 bg-white border-b border-gray-200 shadow-lg">
-            <div className="p-4 space-y-2">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      onNavigate(item.id);
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === item.id
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-              <button
-                onClick={logout}
-                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <main className="pt-16 pb-20 md:pb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</div>
-      </main>
-
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-        <div className="flex justify-around items-center h-16">
-          {navigationItems.slice(0, 5).map((item) => {
+        {/* Nav items */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {navigationItems.map((item) => {
             const Icon = item.icon;
+            const isActive = currentPage === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`flex flex-col items-center justify-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
-                  currentPage === item.id ? 'text-blue-700' : 'text-gray-600'
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-xs font-medium">{item.label.split(' ')[0]}</span>
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
               </button>
             );
           })}
+        </nav>
+
+        {/* User / logout bottom block */}
+        <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-gray-900 truncate">
+              {user?.email || "Authority Admin"}
+            </span>
+            <span className="text-xs text-gray-500 truncate">
+              {role || "Authority Body"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onNavigate("profile")}
+              className={`p-2 rounded-lg transition-colors ${
+                currentPage === "profile"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <User className="w-5 h-5" />
+            </button>
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ===== MAIN AREA ===== */}
+      <div className="flex-1 flex flex-col md:ml-64">
+        {/* MOBILE TOP BAR (md:hidden) */}
+        <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+          <div className="relative flex justify-between items-center px-4 h-16">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">
+                  Authority Portal
+                </h1>
+              </div>
+            </div>
+
+            {/* Profile button instead of menu */}
+            <div className="relative">
+              <button
+                onClick={() => setMobileProfileOpen((v) => !v)}
+                className="p-2 rounded-lg text-gray-600 hover:bg-gray-50"
+              >
+                <User className="w-6 h-6" />
+              </button>
+
+              {mobileProfileOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+                  <button
+                    onClick={() => {
+                      onNavigate("profile");
+                      setMobileProfileOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 ${
+                      currentPage === "profile"
+                        ? "text-blue-700"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>View Profile</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileProfileOpen(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-600 hover:bg-red-50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN CONTENT */}
+        <main className="flex-1">
+          <div className="px-4 sm:px-6 lg:px-8 py-8 pt-20 md:pt-8 pb-20 md:pb-8">
+            {children}
+          </div>
+        </main>
+
+        {/* MOBILE BOTTOM NAV (5 items only) */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
+          <div className="flex justify-around items-center h-16">
+            {primaryNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentPage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onNavigate(item.id);
+                    setMobileProfileOpen(false);
+                  }}
+                  className={`flex flex-col items-center justify-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
+                    isActive ? "text-blue-700" : "text-gray-600"
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs font-medium">
+                    {item.label.split(" ")[0]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

@@ -1,12 +1,11 @@
 // src/components/CertificateRequests.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   Filter,
   Download,
-  Eye,
   X,
   FileText,
   CheckCircle,
@@ -19,7 +18,6 @@ import { exportToCSV } from "../utils/exportCSV";
 import {
   acceptCertificateRequest,
   CertificateRequestDoc,
-  fetchAttachmentRecord,
   getCertificateRequests,
   updateCertificateRequestStatus,
 } from "../firebase/certificate-services";
@@ -27,7 +25,7 @@ import {
   dataUrlToBlob,
   normalizeToDataUrl,
 } from "../utils/attachmentConverters";
-import { fetchAttachmentDocById } from "../firebase/course-claim-service";
+import { fetchAttachmentDocById } from "../firebase/attachment-service";
 import { useAuth } from "../context/AuthContext";
 
 const itemsPerPageDefault = 10;
@@ -50,7 +48,7 @@ export default function CertificateRequests() {
     (async () => {
       try {
         setLoading(true);
-        const data = await getCertificateRequests();
+        const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
         setRequests(data);
         setError(null);
       } catch (err: any) {
@@ -69,7 +67,8 @@ export default function CertificateRequests() {
       (r.studentName ?? "").toString().toLowerCase().includes(q) ||
       (r.courseTitle ?? "").toString().toLowerCase().includes(q) ||
       (r.agencyName ?? "").toString().toLowerCase().includes(q) ||
-      (r.studentEmail ?? "").toString().toLowerCase().includes(q);
+      (r.studentEmail ?? "").toString().toLowerCase().includes(q) ||
+      (r.studentId ?? "").toString().toLowerCase().includes(q);
     const matchesStatus =
       statusFilter === "All" ||
       (r.status ?? "").toLowerCase() === statusFilter.toLowerCase();
@@ -89,11 +88,13 @@ export default function CertificateRequests() {
   const handleExport = () => {
     const exportData = filteredRequests.map((r) => ({
       ID: r.id,
-      Student: r.studentName,
-      Email: r.studentEmail,
+      StudentName: r.studentName,
       StudentID: r.studentId,
+      Email: r.studentEmail,
       Course: r.courseTitle,
+      CourseID: r.courseId,
       Agency: r.agencyName,
+      AgencyUserId: r.agencyUserId,
       Status: r.status,
     }));
     exportToCSV(exportData, "certificate-requests");
@@ -130,7 +131,10 @@ export default function CertificateRequests() {
       const dataUrl =
         attach.dataUrl ||
         (attach.base64
-          ? normalizeToDataUrl(attach.base64, attach.mimeType ?? docRef.type)
+          ? normalizeToDataUrl(
+              attach.base64,
+              attach.mimeType ?? docRef.type ?? "application/pdf"
+            )
           : null);
 
       if (!dataUrl) {
@@ -138,14 +142,9 @@ export default function CertificateRequests() {
         return;
       }
 
-      // Convert to Blob
       const blob = dataUrlToBlob(dataUrl);
       const url = URL.createObjectURL(blob);
-
-      // Open in a new tab
       window.open(url, "_blank");
-
-      // Optional: revoke URL after some time
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (err) {
       console.error("Failed to load attachment:", err);
@@ -156,7 +155,6 @@ export default function CertificateRequests() {
   const handleApprove = async () => {
     if (!selectedRequest) return;
     try {
-      // optional: pass reviewerName or reviewedAt as needed
       const reviewerName = abId ? `AB-${abId}` : "Authority Reviewer";
       const reviewedAt = new Date().toISOString();
       const studentId = selectedRequest.studentId ?? "";
@@ -167,14 +165,10 @@ export default function CertificateRequests() {
         studentId,
       });
 
-      console.log(selectedRequest);
-
       console.log("Moved to AcceptedCertificates id:", acceptedId);
 
-      // reload requests after deletion from CertificateApprovalRequest
-      const data = await getCertificateRequests();
+      const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
       setRequests(data);
-
       closeModal();
     } catch (err: any) {
       console.error("approve failed", err);
@@ -194,7 +188,7 @@ export default function CertificateRequests() {
         rejectionComments: remarks,
         reviewedAt: new Date().toISOString(),
       });
-      const data = await getCertificateRequests();
+      const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
       setRequests(data);
       closeModal();
     } catch (err: any) {
@@ -203,65 +197,8 @@ export default function CertificateRequests() {
     }
   };
 
-  /** Convert attachment base64/dataUrl -> Blob and open in new tab */
-  async function openAttachmentById(
-    attachmentId: string,
-    fallbackName?: string
-  ) {
-    try {
-      const rec = await fetchAttachmentRecord(attachmentId);
-      if (!rec) {
-        alert("Attachment not found");
-        return;
-      }
-
-      // determine dataUrl
-      const base64 = rec.base64 ?? null;
-      const dataUrl =
-        rec.dataUrl ??
-        (base64
-          ? base64.startsWith("data:")
-            ? base64
-            : `data:${rec.mime ?? "application/octet-stream"};base64,${base64}`
-          : null);
-
-      if (!dataUrl) {
-        alert("Attachment record doesn't contain base64/dataUrl");
-        return;
-      }
-
-      // convert to blob
-      const parts = dataUrl.split(",");
-      const meta = parts[0] ?? "";
-      const isBase64 = meta.includes(";base64");
-      let blob: Blob;
-      if (isBase64) {
-        const b64 = parts[1] ?? "";
-        const binary = atob(b64);
-        const len = binary.length;
-        const u8 = new Uint8Array(len);
-        for (let i = 0; i < len; i++) u8[i] = binary.charCodeAt(i);
-        const mime =
-          (meta.match(/data:([^;]+);?/) || [])[1] ??
-          rec.mime ??
-          "application/octet-stream";
-        blob = new Blob([u8], { type: mime });
-      } else {
-        // fallback: fetch the dataUrl (could be URL)
-        const resp = await fetch(dataUrl);
-        blob = await resp.blob();
-      }
-
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch (err) {
-      console.error("openAttachmentById failed", err);
-      alert("Failed to open attachment. See console.");
-    }
-  }
   const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch ((status || "").toLowerCase()) {
       case "pending":
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
@@ -294,12 +231,14 @@ export default function CertificateRequests() {
         return null;
     }
   };
+
   if (loading)
     return <p className="p-6 text-gray-700">Loading certificate requests…</p>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
+      {/* header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold">Certificate Requests</h1>
         <button
@@ -312,13 +251,14 @@ export default function CertificateRequests() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        {/* filters */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by student, course or agency..."
+              placeholder="Search by student, course, agency or ID..."
               className="w-full pl-11 pr-4 py-3 border rounded-lg"
             />
           </div>
@@ -338,6 +278,7 @@ export default function CertificateRequests() {
           </div>
         </div>
 
+        {/* table */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -353,28 +294,51 @@ export default function CertificateRequests() {
             <tbody>
               {paginatedRequests.map((r) => (
                 <tr key={r.id} className="border-b hover:bg-gray-50">
+                  {/* STUDENT: show name + ID (and email) */}
                   <td className="py-4 px-4">
                     <div>
-                      <div className="font-medium">{r.studentId}</div>
-                      <div className="text-xs text-gray-500">
-                        {r.studentEmail}
+                      <div className="font-medium">
+                        {r.studentName || "Unknown student"}
                       </div>
+                      <div className="text-xs font-mono text-gray-500">
+                        ID: {r.studentId || "—"}
+                      </div>
+                      {r.studentEmail && (
+                        <div className="text-xs text-gray-500">
+                          {r.studentEmail}
+                        </div>
+                      )}
                     </div>
                   </td>
-                  <td className="py-4 px-4">{r.courseId}</td>
-                  <td className="py-4 px-4">{r.agencyUserId}</td>
+
+                  {/* COURSE: course name only in table */}
+                  <td className="py-4 px-4">
+                    {r.courseTitle || "—"}
+                  </td>
+
+                  {/* AGENCY: agency name only in table */}
+                  <td className="py-4 px-4">
+                    {r.agencyName || "—"}
+                  </td>
+
+                  {/* SUBMITTED DATE */}
                   <td className="py-4 px-4">
                     {r.submittedAt
                       ? new Date(
-                          r.submittedAt?.seconds
-                            ? r.submittedAt.toDate()
+                          // support both Timestamp + ISO string
+                          (r.submittedAt as any)?.seconds
+                            ? (r.submittedAt as any).toDate()
                             : r.submittedAt
                         )
                           .toISOString()
                           .split("T")[0]
                       : "—"}
                   </td>
-                  <td className="py-4 px-4">{getStatusBadge(r.status)}</td>
+
+                  {/* STATUS */}
+                  <td className="py-4 px-4">{getStatusBadge(r.status ?? "")}</td>
+
+                  {/* ACTIONS */}
                   <td className="py-4 px-4">
                     <button
                       onClick={() => openModal(r)}
@@ -401,7 +365,7 @@ export default function CertificateRequests() {
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-2 rounded hover:bg-gray-100"
+                className="p-2 rounded hover:bg-gray-100 disabled:opacity-40"
               >
                 <ChevronLeft />
               </button>
@@ -413,7 +377,7 @@ export default function CertificateRequests() {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="p-2 rounded hover:bg-gray-100"
+                className="p-2 rounded hover:bg-gray-100 disabled:opacity-40"
               >
                 <ChevronRight />
               </button>
@@ -422,38 +386,105 @@ export default function CertificateRequests() {
         )}
       </div>
 
-      {/* modal */}
+      {/* MODAL */}
       {selectedRequest && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-xl overflow-auto max-h-[90vh]">
+            {/* modal header */}
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <div className="flex items-center gap-3">
                 <FileText />
                 <div>
                   <div className="font-semibold">
-                    {selectedRequest.courseTitle}
+                    {selectedRequest.courseTitle || "Certificate Request"}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {selectedRequest.studentName}
+                    {selectedRequest.studentName || "—"}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={closeModal}
-                  className="p-2 rounded hover:bg-gray-100"
-                >
-                  <X />
-                </button>
-              </div>
+              <button
+                onClick={closeModal}
+                className="p-2 rounded hover:bg-gray-100"
+              >
+                <X />
+              </button>
             </div>
 
             <div className="p-6 space-y-6">
-              <div>
-                <label className="text-sm font-medium">Justification</label>
-                <p className="mt-1">{selectedRequest.rationale}</p>
+              {/* IDs + Names section */}
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Request ID</p>
+                  <p className="font-mono text-xs break-all">
+                    {selectedRequest.id}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  {getStatusBadge(selectedRequest.status ?? "")}
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Student</p>
+                  <p className="font-medium">
+                    {selectedRequest.studentName || "—"}
+                  </p>
+                  <p className="text-xs font-mono text-gray-500">
+                    ID: {selectedRequest.studentId || "—"}
+                  </p>
+                  {selectedRequest.studentEmail && (
+                    <p className="text-xs text-gray-500">
+                      {selectedRequest.studentEmail}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Course</p>
+                  <p className="font-medium">
+                    {selectedRequest.courseTitle || "—"}
+                  </p>
+                  <p className="text-xs font-mono text-gray-500">
+                    ID: {selectedRequest.courseId || "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Agency</p>
+                  <p className="font-medium">
+                    {selectedRequest.agencyName || "—"}
+                  </p>
+                  <p className="text-xs font-mono text-gray-500">
+                    User ID: {selectedRequest.agencyUserId || "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Submitted At</p>
+                  <p className="text-sm">
+                    {selectedRequest.submittedAt
+                      ? new Date(
+                          (selectedRequest.submittedAt as any)?.seconds
+                            ? (selectedRequest.submittedAt as any).toDate()
+                            : selectedRequest.submittedAt
+                        )
+                          .toISOString()
+                          .split("T")[0]
+                      : "—"}
+                  </p>
+                </div>
               </div>
 
+              {/* Justification */}
+              <div>
+                <label className="text-sm font-medium">Justification</label>
+                <p className="mt-1 text-sm">
+                  {selectedRequest.rationale || selectedRequest.notes || "—"}
+                </p>
+              </div>
+
+              {/* Attachments */}
               <div>
                 <label className="text-sm font-medium">Attachments</label>
                 <div className="space-y-2 mt-2">
@@ -461,7 +492,7 @@ export default function CertificateRequests() {
                     selectedRequest.attachments.length === 0) && (
                     <p className="text-sm text-gray-500">No attachments</p>
                   )}
-                  {selectedRequest.attachments.map((doc) => (
+                  {selectedRequest.attachments?.map((doc) => (
                     <div
                       key={doc.id}
                       className="flex items-center justify-between bg-gray-50 p-3 rounded"
@@ -469,9 +500,11 @@ export default function CertificateRequests() {
                       <div className="flex items-center gap-3">
                         <FileText />
                         <div>
-                          <div className="font-medium text-sm">{doc.name}</div>
+                          <div className="font-medium text-sm">
+                            {doc.name || "Attachment"}
+                          </div>
                           <div className="text-xs text-gray-500">
-                            {doc.type} •{" "}
+                            {doc.type || "file"} •{" "}
                             {(doc.size ?? 0) / 1024 >= 1
                               ? `${((doc.size ?? 0) / 1024).toFixed(1)} KB`
                               : `${doc.size ?? 0} B`}
@@ -493,16 +526,18 @@ export default function CertificateRequests() {
                 </div>
               </div>
 
+              {/* Remarks */}
               <div>
                 <label className="text-sm font-medium">Remarks</label>
                 <textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   rows={4}
-                  className="w-full border rounded p-2"
+                  className="w-full border rounded p-2 text-sm"
                 />
               </div>
 
+              {/* Approve / Reject */}
               {selectedRequest.status === "pending" && (
                 <div className="flex gap-3">
                   <button

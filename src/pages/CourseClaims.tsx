@@ -43,8 +43,8 @@ const CourseClaims: React.FC = () => {
   );
   const [remarks, setRemarks] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  console.log(selectedClaim);
 
+  // 🔍 PDF preview state (for mobile)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   /* ---------- load from Firestore ---------- */
@@ -63,7 +63,7 @@ const CourseClaims: React.FC = () => {
       }
     };
     loadClaims();
-  }, []);
+  }, [abId]);
 
   /* ---------- derived lists ---------- */
   const filteredClaims = claims.filter((claim) => {
@@ -165,9 +165,7 @@ const CourseClaims: React.FC = () => {
     try {
       await approveCourseClaimRequest(selectedClaim.id, abId || "");
 
-      // remove from UI (since doc is deleted)
       setClaims((prev) => prev.filter((c) => c.id !== selectedClaim.id));
-
       closeModal();
     } catch (err: any) {
       console.error(err);
@@ -199,56 +197,7 @@ const CourseClaims: React.FC = () => {
     }
   };
 
-  // const handleViewDocument = async (docRef: {
-  //   id: string;
-  //   name?: string;
-  //   type?: string;
-  //   size?: number;
-  // }) => {
-  //   if (!docRef?.id) {
-  //     alert("Document id missing");
-  //     return;
-  //   }
-  //   setPreviewLoading(true);
-  //   try {
-  //     const attach = await fetchAttachmentDocById(docRef.id);
-  //     if (!attach) {
-  //       alert("Attachment not found");
-  //       return;
-  //     }
-
-  //     // prefer dataUrl (complete), else build from base64 + mimeType
-  //     const maybeDataUrl =
-  //       attach.dataUrl ??
-  //       (attach.base64
-  //         ? normalizeToDataUrl(
-  //             attach.base64,
-  //             attach.mimeType ?? attach.mimeType
-  //           )
-  //         : null);
-
-  //     if (!maybeDataUrl) {
-  //       alert("Attachment content missing (no base64/dataUrl stored).");
-  //       return;
-  //     }
-
-  //     const blob = dataUrlToBlob(maybeDataUrl);
-  //     const url = URL.createObjectURL(blob);
-
-  //     setPreviewUrl(url);
-  //     setPreviewName(
-  //       attach.filename ?? docRef.name ?? `attachment-${docRef.id}`
-  //     );
-  //     setPreviewMime(attach.mimeType ?? docRef.type ?? blob.type);
-  //     setIsPreviewOpen(true);
-  //   } catch (err: any) {
-  //     console.error("Failed to load attachment:", err);
-  //     alert("Failed to load attachment. See console.");
-  //   } finally {
-  //     setPreviewLoading(false);
-  //   }
-  // };
-
+  /* ---------- attachment view (PC = new tab, mobile = in-app iframe) ---------- */
   const handleViewDocument = async (docRef: {
     id: string;
     name?: string;
@@ -267,7 +216,6 @@ const CourseClaims: React.FC = () => {
         return;
       }
 
-      // Prefer stored dataUrl, else generate from raw base64
       const dataUrl =
         attach.dataUrl ||
         (attach.base64
@@ -279,15 +227,25 @@ const CourseClaims: React.FC = () => {
         return;
       }
 
-      // Convert to Blob
       const blob = dataUrlToBlob(dataUrl);
       const url = URL.createObjectURL(blob);
 
-      // Open in a new tab
-      window.open(url, "_blank");
+      const isDesktop =
+        typeof window !== "undefined" ? window.innerWidth >= 1024 : true;
 
-      // Optional: revoke URL after some time
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      if (isDesktop) {
+        // 💻 PC: behave as before
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } else {
+        // 📱 Mobile: show full-screen iframe viewer
+        setPreviewUrl(url);
+        setPreviewName(
+          attach.filename ?? docRef.name ?? `attachment-${docRef.id}`
+        );
+        setPreviewMime(attach.mimeType ?? docRef.type ?? blob.type);
+        setIsPreviewOpen(true);
+      }
     } catch (err) {
       console.error("Failed to load attachment:", err);
       alert("Failed to load attachment.");
@@ -315,6 +273,7 @@ const CourseClaims: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">
           Course Claim Requests
@@ -328,6 +287,7 @@ const CourseClaims: React.FC = () => {
         </button>
       </div>
 
+      {/* Filters + Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
@@ -356,6 +316,7 @@ const CourseClaims: React.FC = () => {
           </div>
         </div>
 
+        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -425,6 +386,7 @@ const CourseClaims: React.FC = () => {
           </table>
         </div>
 
+        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600">
@@ -457,8 +419,9 @@ const CourseClaims: React.FC = () => {
         )}
       </div>
 
+      {/* Claim Details Modal */}
       {selectedClaim && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
@@ -533,7 +496,6 @@ const CourseClaims: React.FC = () => {
                   Tags
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {/* Assuming no tags in schema; you can wire from Firestore later */}
                   <span className="inline-flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
                     <Tag className="w-3 h-3" />
                     <span>Course Claim</span>
@@ -564,9 +526,6 @@ const CourseClaims: React.FC = () => {
                             {doc.type} • {(doc.size / 1024).toFixed(1)} KB
                           </p>
                         </div>
-                        {/* <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                          View
-                        </button> */}
                       </div>
                       <a
                         href="#"
@@ -620,6 +579,33 @@ const CourseClaims: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 📱 Mobile PDF Viewer Modal */}
+      {isPreviewOpen && previewUrl && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-wide text-gray-300">
+                Certificate Preview
+              </p>
+              <p className="text-sm font-medium truncate">
+                {previewName || "Document"}
+              </p>
+            </div>
+            <button
+              onClick={handleClosePreview}
+              className="p-1 rounded hover:bg-white/10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <iframe
+            src={previewUrl}
+            title="Certificate PDF"
+            className="flex-1 w-full bg-gray-900"
+          />
         </div>
       )}
     </div>
