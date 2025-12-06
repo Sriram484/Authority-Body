@@ -167,6 +167,23 @@ export default function CertificateRequests() {
       const reviewedAt = new Date().toISOString();
       const studentId = selectedRequest.studentId ?? "";
 
+
+      //Create QR with dummy data
+
+      //Create Certificate - > Add qr code
+
+
+      //Convert Certificate to pdf file
+
+
+      //Send Certificate to Pinata
+
+
+      //Get Certificate URL -> Send to update Funtion , store in firstore + Blockchain
+
+
+
+
       // 1) Firebase: move to AcceptedCertificates + update request + student
 
       const { acceptedId } = await acceptCertificateRequest({
