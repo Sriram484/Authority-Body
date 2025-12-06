@@ -239,11 +239,6 @@ const CourseClaims: React.FC = () => {
       } else {
         // 📱 Mobile: show full-screen iframe viewer
         setPreviewUrl(url);
-        setPreviewName(
-          attach.filename ?? docRef.name ?? `attachment-${docRef.id}`
-        );
-        setPreviewMime(attach.mimeType ?? docRef.type ?? blob.type);
-        setIsPreviewOpen(true);
       }
     } catch (err) {
       console.error("Failed to load attachment:", err);
@@ -579,7 +574,7 @@ const CourseClaims: React.FC = () => {
       )}
 
       {/* 📱 Mobile PDF Viewer Modal */}
-      {isPreviewOpen && previewUrl && (
+      {/* {isPreviewOpen && previewUrl && (
         <div className="fixed inset-0 z-50 bg-black/70 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white">
             <div className="min-w-0">
@@ -603,7 +598,7 @@ const CourseClaims: React.FC = () => {
             className="flex-1 w-full bg-gray-900"
           />
         </div>
-      )}
+      )} */}
     </div>
   );
 };
