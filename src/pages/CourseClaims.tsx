@@ -46,10 +46,6 @@ const CourseClaims: React.FC = () => {
   console.log(selectedClaim);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewName, setPreviewName] = useState<string | null>(null);
-  const [previewMime, setPreviewMime] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   /* ---------- load from Firestore ---------- */
   useEffect(() => {
