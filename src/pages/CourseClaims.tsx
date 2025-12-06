@@ -197,7 +197,6 @@ const CourseClaims: React.FC = () => {
     }
   };
 
-  /* ---------- attachment view (PC = new tab, mobile = in-app iframe) ---------- */
   const handleViewDocument = async (docRef: {
     id: string;
     name?: string;
@@ -253,13 +252,10 @@ const CourseClaims: React.FC = () => {
   };
 
   const handleClosePreview = () => {
-    setIsPreviewOpen(false);
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     setPreviewUrl(null);
-    setPreviewName(null);
-    setPreviewMime(null);
   };
 
   /* ---------- render ---------- */
