@@ -18,6 +18,7 @@ import { exportToCSV } from "../utils/exportCSV";
 import {
   acceptCertificateRequest,
   CertificateRequestDoc,
+  getCertificateFilledTemplateById,
   getCertificateRequests,
   updateCertificateRequestStatus,
 } from "../firebase/certificate-services";
@@ -33,6 +34,8 @@ import {
   updateCertificateOnBlockchain,
 } from "../blockchain/service";
 import { buildApprovedCertificateAsset } from "../blockchain/approval-mapper";
+import { generateQrDataUrl } from "../utils/qr";
+import { generateFinalPdfWithQr } from "../utils/certificate-qr-renderer";
 
 const itemsPerPageDefault = 10;
 
@@ -166,31 +169,48 @@ export default function CertificateRequests() {
       const reviewerName = abId ? `AB-${abId}` : "Authority Reviewer";
       const reviewedAt = new Date().toISOString();
       const studentId = selectedRequest.studentId ?? "";
+      const certificate = await getCertificateFilledTemplateById(
+        selectedRequest.id
+      );
+      console.log(certificate);
 
+      const templateJson = certificate!.templateJson;
+
+      const dummyUrl = `https://example.com/cert/`;
+      const qrDataUrl = await generateQrDataUrl(dummyUrl);
+
+      console.log("before generateFinalPdfWithQr");
+
+      const finalPdfBase64 = await generateFinalPdfWithQr({
+        templateJson: templateJson,
+        qrDataUrl,
+      });
+
+      console.log("after generateFinalPdfWithQr");
 
       //Create QR with dummy data
 
       //Create Certificate - > Add qr code
 
-
       //Convert Certificate to pdf file
-
 
       //Send Certificate to Pinata
 
-
       //Get Certificate URL -> Send to update Funtion , store in firstore + Blockchain
 
-
-
-
       // 1) Firebase: move to AcceptedCertificates + update request + student
+      const { ipfsId, response } = await uploadPdfToIpfs(finalPdfBase64);
+      const publicUrl = response.url;
+      console.log("IPFS upload done. Full response:", response);
+      console.log("Certificate IPFS ID / CID:", ipfsId);
+      // downloadBase64Pdf(finalPdfBase64, "Certificate.pdf");
 
       const { acceptedId } = await acceptCertificateRequest({
         requestId: selectedRequest.id,
         reviewerName,
         reviewedAt,
         studentId,
+        url: publicUrl,
       });
 
       console.log("Moved to AcceptedCertificates id:", acceptedId);
@@ -210,7 +230,16 @@ export default function CertificateRequests() {
           approvedAt: reviewedAt,
         });
 
-        await updateCertificateOnBlockchain(certificateId, approvedAsset);
+        const finalAsset = {
+          ...approvedAsset,
+          url: publicUrl,
+          meta: {
+            ...approvedAsset.meta,
+            publicUrl,
+          },
+        };
+
+        await updateCertificateOnBlockchain(certificateId, finalAsset);
         console.log("Blockchain asset updated to approved:", certificateId);
       } catch (bcErr) {
         console.error("Blockchain update failed:", bcErr);
@@ -614,4 +643,81 @@ export default function CertificateRequests() {
       )}
     </div>
   );
+}
+
+function downloadBase64Pdf(base64: string, filename = "certificate.pdf") {
+  // Convert base64 to binary
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+
+  const byteArray = new Uint8Array(byteNumbers);
+
+  // Create blob
+  const blob = new Blob([byteArray], { type: "application/pdf" });
+
+  // Create link
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+
+  // Cleanup
+  URL.revokeObjectURL(link.href);
+}
+
+function base64ToBlob(base64: string, contentType = "application/pdf") {
+  const byteCharacters = atob(base64);
+  const byteArrays: Uint8Array[] = [];
+
+  const sliceSize = 1024;
+  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+    const slice = byteCharacters.slice(offset, offset + sliceSize);
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
+  }
+
+  return new Blob(byteArrays, { type: contentType });
+}
+
+async function uploadPdfToIpfs(finalPdfBase64: string) {
+  // 1) convert base64 → Blob → File
+  const pdfBlob = base64ToBlob(finalPdfBase64, "application/pdf");
+  const file = new File([pdfBlob], "certificate.pdf", {
+    type: "application/pdf",
+  });
+
+  // 2) build multipart/form-data body
+  const formData = new FormData();
+  formData.append("file", file);
+
+  // 3) POST to your IPFS upload endpoint
+  const res = await fetch("https://ipfs-mze2.onrender.com/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `IPFS upload failed: ${res.status} ${res.statusText} ${text}`
+    );
+  }
+
+  const json = await res.json().catch(() => ({} as any));
+
+  // Try all common field names; you can tune this once you see real response
+  const ipfsId = json.cid || json.hash || json.id || json.IpfsHash || null;
+
+  console.log("IPFS upload response:", json);
+  console.log("IPFS ID / CID:", ipfsId);
+
+  return { ipfsId, response: json };
 }

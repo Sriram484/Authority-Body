@@ -61,9 +61,8 @@ export async function getCertificateRequests(opts?: {
   authorityBodyId?: string;
 }): Promise<CertificateRequestDoc[]> {
   const colRef = collection(db, "CertificateApprovalRequest");
-  
-  console.log("@@@@@@@220",opts?.authorityBodyId);
-  
+
+  console.log("@@@@@@@220", opts?.authorityBodyId);
 
   // If authorityBodyId provided, filter by it
   let snap;
@@ -87,23 +86,17 @@ export async function getCertificateRequests(opts?: {
   // 2) Collect IDs for joins
   const studentIds = Array.from(
     new Set(
-      baseRequests
-        .map((r) => r.studentId)
-        .filter((id): id is string => !!id)
+      baseRequests.map((r) => r.studentId).filter((id): id is string => !!id)
     )
   );
   const courseIds = Array.from(
     new Set(
-      baseRequests
-        .map((r) => r.courseId)
-        .filter((id): id is string => !!id)
+      baseRequests.map((r) => r.courseId).filter((id): id is string => !!id)
     )
   );
   const agencyIds = Array.from(
     new Set(
-      baseRequests
-        .map((r) => r.agencyUserId)
-        .filter((id): id is string => !!id)
+      baseRequests.map((r) => r.agencyUserId).filter((id): id is string => !!id)
     )
   );
 
@@ -187,9 +180,6 @@ export async function getCertificateRequests(opts?: {
   return enriched;
 }
 
-
-
-
 /** Normalize a raw doc into our UI-friendly type */
 export function normalizeRequestDoc(
   id: string,
@@ -198,19 +188,19 @@ export function normalizeRequestDoc(
   const attachments =
     Array.isArray(raw.attachments) && raw.attachments.length > 0
       ? raw.attachments.map((a: any) => ({
-        id: a.id,
-        name: a.name ?? a.filename ?? null,
-        type: a.type ?? a.mime ?? null,
-        size: a.size ?? null,
-      }))
-      : Array.isArray(raw.documents)
-        ? raw.documents.map((a: any) => ({
           id: a.id,
           name: a.name ?? a.filename ?? null,
           type: a.type ?? a.mime ?? null,
           size: a.size ?? null,
         }))
-        : [];
+      : Array.isArray(raw.documents)
+      ? raw.documents.map((a: any) => ({
+          id: a.id,
+          name: a.name ?? a.filename ?? null,
+          type: a.type ?? a.mime ?? null,
+          size: a.size ?? null,
+        }))
+      : [];
 
   return {
     id,
@@ -256,7 +246,6 @@ export async function updateCertificateRequestStatus(
   await updateDoc(ref, payload);
   return true;
 }
-
 
 //  it keeps the approved certificate also in the CertificateApprovalRequest collection
 
@@ -344,12 +333,14 @@ export async function acceptCertificateRequest({
   reviewerName,
   reviewedAt, // string or timestamp - optional
   studentId,
+  url,
 }: {
   requestId: string;
   acceptedId?: string | null;
   reviewerName?: string | null;
   reviewedAt?: string | null;
   studentId?: string | "";
+  url: string;
 }) {
   if (!requestId) throw new Error("requestId required");
 
@@ -373,6 +364,7 @@ export async function acceptCertificateRequest({
     studentId: studentId,
     // ensure metadata timestamps are set
     updatedAt: serverTimestamp(),
+    url: url,
     // remove any fields you don't want persisted to accepted collection here, if any
   };
 
@@ -442,4 +434,12 @@ export async function createCertificateApprovalRequest(
     status: minimalPayload.status ?? "pending",
   });
   return { id: docRef.id };
+}
+
+export async function getCertificateFilledTemplateById(requestId: string) {
+  const sourceRef = doc(db, "FilledTemplates", requestId);
+  const srcSnap = await getDoc(sourceRef);
+  if (!srcSnap.exists()) return null; // safety
+
+  return srcSnap.data();
 }
