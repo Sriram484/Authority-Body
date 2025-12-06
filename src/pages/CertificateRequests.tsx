@@ -28,6 +28,12 @@ import {
 import { fetchAttachmentDocById } from "../firebase/attachment-service";
 import { useAuth } from "../context/AuthContext";
 
+import {
+  fetchCertificateFromBlockchain,
+  updateCertificateOnBlockchain,
+} from "../blockchain/service";
+import { buildApprovedCertificateAsset } from "../blockchain/approval-mapper";
+
 const itemsPerPageDefault = 10;
 
 export default function CertificateRequests() {
@@ -48,7 +54,9 @@ export default function CertificateRequests() {
     (async () => {
       try {
         setLoading(true);
-        const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
+        const data = await getCertificateRequests({
+          authorityBodyId: abId ?? undefined,
+        });
         setRequests(data);
         setError(null);
       } catch (err: any) {
@@ -158,6 +166,9 @@ export default function CertificateRequests() {
       const reviewerName = abId ? `AB-${abId}` : "Authority Reviewer";
       const reviewedAt = new Date().toISOString();
       const studentId = selectedRequest.studentId ?? "";
+
+      // 1) Firebase: move to AcceptedCertificates + update request + student
+
       const { acceptedId } = await acceptCertificateRequest({
         requestId: selectedRequest.id,
         reviewerName,
@@ -167,7 +178,33 @@ export default function CertificateRequests() {
 
       console.log("Moved to AcceptedCertificates id:", acceptedId);
 
-      const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
+      // 2) Blockchain: update asset with same ID -> status = approved
+      const certificateId = selectedRequest.id; // same as Firestore doc id
+
+      try {
+        const existingAsset = await fetchCertificateFromBlockchain(
+          certificateId
+        );
+
+        const approvedAsset = buildApprovedCertificateAsset(existingAsset, {
+          approverAbId: abId ?? null,
+          reviewerName,
+          remarks, // whatever is typed in the remarks box (optional)
+          approvedAt: reviewedAt,
+        });
+
+        await updateCertificateOnBlockchain(certificateId, approvedAsset);
+        console.log("Blockchain asset updated to approved:", certificateId);
+      } catch (bcErr) {
+        console.error("Blockchain update failed:", bcErr);
+        // optional: show alert or just log
+        // alert("Approved in system, but failed to update blockchain. See console.");
+      }
+
+      // 3) Refresh list
+      const data = await getCertificateRequests({
+        authorityBodyId: abId ?? undefined,
+      });
       setRequests(data);
       closeModal();
     } catch (err: any) {
@@ -188,7 +225,9 @@ export default function CertificateRequests() {
         rejectionComments: remarks,
         reviewedAt: new Date().toISOString(),
       });
-      const data = await getCertificateRequests({ authorityBodyId: abId ?? undefined });
+      const data = await getCertificateRequests({
+        authorityBodyId: abId ?? undefined,
+      });
       setRequests(data);
       closeModal();
     } catch (err: any) {
@@ -312,14 +351,10 @@ export default function CertificateRequests() {
                   </td>
 
                   {/* COURSE: course name only in table */}
-                  <td className="py-4 px-4">
-                    {r.courseTitle || "—"}
-                  </td>
+                  <td className="py-4 px-4">{r.courseTitle || "—"}</td>
 
                   {/* AGENCY: agency name only in table */}
-                  <td className="py-4 px-4">
-                    {r.agencyName || "—"}
-                  </td>
+                  <td className="py-4 px-4">{r.agencyName || "—"}</td>
 
                   {/* SUBMITTED DATE */}
                   <td className="py-4 px-4">
@@ -336,7 +371,9 @@ export default function CertificateRequests() {
                   </td>
 
                   {/* STATUS */}
-                  <td className="py-4 px-4">{getStatusBadge(r.status ?? "")}</td>
+                  <td className="py-4 px-4">
+                    {getStatusBadge(r.status ?? "")}
+                  </td>
 
                   {/* ACTIONS */}
                   <td className="py-4 px-4">

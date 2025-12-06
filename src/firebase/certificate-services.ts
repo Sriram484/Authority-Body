@@ -257,6 +257,87 @@ export async function updateCertificateRequestStatus(
   return true;
 }
 
+
+//  it keeps the approved certificate also in the CertificateApprovalRequest collection
+
+/*
+export async function acceptCertificateRequest({
+  requestId,
+  acceptedId, // optional; if not passed, uses requestId
+  reviewerName,
+  reviewedAt,
+  studentId,
+}: {
+  requestId: string;
+  acceptedId?: string | null;
+  reviewerName?: string | null;
+  reviewedAt?: string | null;
+  studentId?: string | "";
+}) {
+  if (!requestId) throw new Error("requestId required");
+
+  // 1) Read source doc from CertificateApprovalRequest
+  const sourceRef = doc(db, "CertificateApprovalRequest", requestId);
+  const srcSnap = await getDoc(sourceRef);
+  if (!srcSnap.exists()) throw new Error("Source request not found");
+
+  const srcData = srcSnap.data() ?? {};
+
+  const nowTs = serverTimestamp();
+  const reviewedAtValue = reviewedAt ?? srcData.reviewedAt ?? null;
+
+  // 2) Payload for AcceptedCertificates (clone + normalized status info)
+  const finalAcceptedId = acceptedId ?? requestId;
+  const targetRef = doc(db, "AcceptedCertificates", finalAcceptedId);
+
+  const acceptedPayload: any = {
+    ...srcData,
+    status: "approved",
+    reviewedAt: reviewedAtValue ?? nowTs,
+    acceptedAt: nowTs,
+    acceptedBy: reviewerName ?? null,
+    updatedAt: nowTs,
+  };
+
+  const batch = writeBatch(db);
+
+  // 3) Write AcceptedCertificates/{sameId}
+  batch.set(targetRef, acceptedPayload, { merge: true });
+
+  // 4) Update original request doc => status = approved, same meta
+  batch.set(
+    sourceRef,
+    {
+      status: "approved",
+      reviewedAt: reviewedAtValue ?? nowTs,
+      acceptedAt: nowTs,
+      acceptedBy: reviewerName ?? null,
+      updatedAt: nowTs,
+    },
+    { merge: true }
+  );
+
+  // 5) Update student's certificateIds (if we have studentId)
+  if (studentId) {
+    const studentRef = doc(db, "students", studentId);
+    batch.set(
+      studentRef,
+      {
+        certificateIds: arrayUnion(finalAcceptedId),
+        updatedAt: nowTs,
+      },
+      { merge: true }
+    );
+  }
+
+  await batch.commit();
+
+  return { acceptedId: finalAcceptedId };
+}
+
+*/
+
+// It doesnt keeps the approved certificate also in the CertificateApprovalRequest collection
 export async function acceptCertificateRequest({
   requestId,
   acceptedId, // optional: if provided, will use as the target id, otherwise uses requestId
