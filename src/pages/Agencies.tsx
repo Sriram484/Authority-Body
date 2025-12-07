@@ -34,9 +34,9 @@ import {
   removeAgencyFromCourse,
 } from "../firebase/course-service";
 
-
 const Agencies: React.FC = () => {
   const { abId } = useAuth(); // authority UID from context
+  console.log(abId);
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [coursesByAgency, setCoursesByAgency] = useState<
@@ -92,6 +92,8 @@ const Agencies: React.FC = () => {
       if (!abId) return;
       try {
         const courses = await getCoursesForAuthority(abId);
+        console.log(courses);
+
         setAllCourses(courses);
       } catch (err) {
         console.error("Failed to load courses for authority", err);

@@ -52,6 +52,7 @@ export default function CertificateRequests() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = itemsPerPageDefault;
   const { abId } = useAuth();
+  console.log(abId);
 
   useEffect(() => {
     (async () => {
