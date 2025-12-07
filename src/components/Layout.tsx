@@ -9,6 +9,7 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { useLanguage } from "../context/LanguageContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -23,6 +24,7 @@ const Layout: React.FC<LayoutProps> = ({
 }) => {
   const { user, role, logout } = useAuth();
   const [mobileProfileOpen, setMobileProfileOpen] = React.useState(false);
+  const { language, setLanguage } = useLanguage();
 
   const navigationItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -74,33 +76,57 @@ const Layout: React.FC<LayoutProps> = ({
           })}
         </nav>
 
-        {/* User / logout bottom block */}
-        <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-gray-900 truncate">
-              {user?.email || "Authority Admin"}
-            </span>
-            <span className="text-xs text-gray-500 truncate">
-              {role || "Authority Body"}
-            </span>
+        {/* Language + User / logout bottom block */}
+        <div className="border-t border-gray-200 px-4 py-3 space-y-3">
+          {/* Language selector */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">
+              Language
+            </label>
+            <div className="relative">
+              <select
+                value={language}
+                onChange={(e) =>
+                  setLanguage(e.target.value as "en" | "hi" | "mrw" | "raj")
+                }
+                className="w-full text-xs rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+              >
+                <option value="en">English</option>
+                <option value="hi">हिन्दी</option>
+                <option value="mrw">Marwari</option>
+                <option value="raj">Rajasthani</option>
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onNavigate("profile")}
-              className={`p-2 rounded-lg transition-colors ${
-                currentPage === "profile"
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <User className="w-5 h-5" />
-            </button>
-            <button
-              onClick={logout}
-              className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+
+          {/* User + logout */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-gray-900 truncate">
+                {user?.email || "Authority Admin"}
+              </span>
+              <span className="text-xs text-gray-500 truncate">
+                {role || "Authority Body"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onNavigate("profile")}
+                className={`p-2 rounded-lg transition-colors ${
+                  currentPage === "profile"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <User className="w-5 h-5" />
+              </button>
+              <button
+                onClick={logout}
+                className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
