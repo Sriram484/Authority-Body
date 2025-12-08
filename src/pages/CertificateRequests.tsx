@@ -36,7 +36,9 @@ import {
 } from "../blockchain/service";
 import { buildApprovedCertificateAsset } from "../blockchain/approval-mapper";
 import { generateQrDataUrl } from "../utils/qr";
-import { generateFinalPdfWithQr } from "../utils/certificate-qr-renderer";
+import {
+  generateFinalImageWithQrAndStego,
+} from "../utils/certificate-qr-renderer";
 import { useTranslation } from "react-i18next";
 
 const itemsPerPageDefault = 10;
@@ -184,12 +186,13 @@ export default function CertificateRequests() {
       const templateJson = certificate!.templateJson;
 
       //TODO
-      const dummyUrl = `https://example.com/cert/`;
+      const dummyUrl = selectedRequest.id;
       const qrDataUrl = await generateQrDataUrl(dummyUrl);
 
-      const finalPdfBase64 = await generateFinalPdfWithQr({
+      const finalPdfBase64 = await generateFinalImageWithQrAndStego({
         templateJson: templateJson,
         qrDataUrl,
+        certificateId: selectedRequest.id,
       });
 
       const { ipfsId, response } = await uploadPdfToIpfs(finalPdfBase64);
@@ -734,7 +737,6 @@ export default function CertificateRequests() {
   );
 }
 
-
 function base64ToBlob(base64: string, contentType = "application/pdf") {
   const byteCharacters = atob(base64);
   const byteArrays: Uint8Array[] = [];
@@ -754,9 +756,9 @@ function base64ToBlob(base64: string, contentType = "application/pdf") {
 }
 
 async function uploadPdfToIpfs(finalPdfBase64: string) {
-  const pdfBlob = base64ToBlob(finalPdfBase64, "application/pdf");
-  const file = new File([pdfBlob], "certificate.pdf", {
-    type: "application/pdf",
+  const pdfBlob = base64ToBlob(finalPdfBase64, "application/img");
+  const file = new File([pdfBlob], "certificate.jpg", {
+    type: "application/img",
   });
 
   const formData = new FormData();
