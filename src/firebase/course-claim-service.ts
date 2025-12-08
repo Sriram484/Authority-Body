@@ -11,6 +11,7 @@ import {
   QueryDocumentSnapshot,
   where,
   query,
+  documentId,
 } from "firebase/firestore";
 
 import { db } from "./firebase-config";
@@ -76,7 +77,7 @@ const normalizeClaim = (snap: QueryDocumentSnapshot): CourseClaimRequest => {
 };
 
 /**
- * Get all course claim requests
+ * Get all course claim requests with corresponding agency names for a given AB id.
  */
 export async function getCourseClaimRequests(
   abId: string
@@ -85,10 +86,57 @@ export async function getCourseClaimRequests(
   if (!abId) return []; // no AB id → no claims
 
   const colRef = collection(db, "courseRequests");
-  const q = query(colRef, where("abIds", "array-contains", abId));
-  const snap = await getDocs(q);
-  return snap.docs.map(normalizeClaim);
+  const qClaims = query(colRef, where("abIds", "array-contains", abId));
+  const snap = await getDocs(qClaims);
+
+  const claims = snap.docs.map(normalizeClaim);
+
+  // collect all unique AA ids from claims
+  const aaIdSet = new Set<string>();
+  for (const c of claims) {
+    if (Array.isArray(c.aaIds)) {
+      c.aaIds.forEach((id) => aaIdSet.add(id));
+    } else if (c.agencyId) {
+      aaIdSet.add(c.agencyId);
+    }
+  }
+  const aaIds = Array.from(aaIdSet);
+
+  if (aaIds.length === 0) return claims;
+
+  // fetch Assessment_Agencies in chunks of 10 (Firestore in-query limit)
+  const agenciesMap: Record<string, string> = {};
+
+  const agenciesCol = collection(db, "Assessment_Agencies");
+  for (let i = 0; i < aaIds.length; i += 10) {
+    const chunk = aaIds.slice(i, i + 10);
+    const qAgencies = query(agenciesCol, where(documentId(), "in", chunk));
+    const snapAgencies = await getDocs(qAgencies);
+    snapAgencies.forEach((d) => {
+      const data: any = d.data();
+      agenciesMap[d.id] =
+        data.organisation || data.name || data.organisationName || "Unknown Agency";
+    });
+  }
+
+  // attach agencyName (and normalize agencyId) to each claim
+  return claims.map((c) => {
+    const primaryAaId =
+      (Array.isArray(c.aaIds) && c.aaIds[0]) || c.agencyId || "";
+
+    const agencyNameFromMap =
+      primaryAaId && agenciesMap[primaryAaId]
+        ? agenciesMap[primaryAaId]
+        : c.agencyName || "Unknown Agency";
+
+    return {
+      ...c,
+      agencyId: primaryAaId,
+      agencyName: agencyNameFromMap,
+    };
+  });
 }
+
 
 /**
  * Approve a claim:

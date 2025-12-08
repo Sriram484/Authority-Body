@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import dashboardPic1 from "@/images/Dashboard_pic1.jpg";
+import dashboardPic2 from "@/images/Dashboard_pic2.jpg";
+import dashboardPic3 from "@/images/Dashboard_pic3.jpeg";
+import dashboardPic4 from "@/images/Dashboard_pic4.jpeg";
+
 interface DashboardProps {
   data: any;
 }
@@ -20,17 +25,21 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
 
   const carouselImages = [
     {
-      url: "https://images.pexels.com/photos/3184306/pexels-photo-3184306.jpeg?auto=compress&cs=tinysrgb&w=1920&h=600&fit=crop",
+      url: dashboardPic1,
       title: t("dashboard.hero.slide1.title"),
       subtitle: t("dashboard.hero.slide1.subtitle"),
     },
     {
-      url: "https://images.pexels.com/photos/5676744/pexels-photo-5676744.jpeg?auto=compress&cs=tinysrgb&w=1920&h=600&fit=crop",
-      title: t("dashboard.hero.slide2.title"),
+      url: dashboardPic2,
       subtitle: t("dashboard.hero.slide2.subtitle"),
     },
     {
-      url: "https://images.pexels.com/photos/3184338/pexels-photo-3184338.jpeg?auto=compress&cs=tinysrgb&w=1920&h=600&fit=crop",
+      url: dashboardPic3,
+      title: t("dashboard.hero.slide3.title"),
+      subtitle: t("dashboard.hero.slide3.subtitle"),
+    },
+    {
+      url: dashboardPic4,
       title: t("dashboard.hero.slide3.title"),
       subtitle: t("dashboard.hero.slide3.subtitle"),
     },
@@ -132,10 +141,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
             <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-16">
               <h2 className="text-3xl md:text-5xl font-bold text-white mb-3 max-w-2xl">
-                {image.title}
+                {/* {image.title} */}
               </h2>
               <p className="text-lg md:text-xl text-white/90 max-w-xl">
-                {image.subtitle}
+                {/* {image.subtitle} */}
               </p>
             </div>
           </div>
