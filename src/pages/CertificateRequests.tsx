@@ -13,6 +13,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { exportToCSV } from "../utils/exportCSV";
 import {
@@ -36,6 +37,7 @@ import {
 import { buildApprovedCertificateAsset } from "../blockchain/approval-mapper";
 import { generateQrDataUrl } from "../utils/qr";
 import { generateFinalPdfWithQr } from "../utils/certificate-qr-renderer";
+import { useTranslation } from "react-i18next";
 
 const itemsPerPageDefault = 10;
 
@@ -52,7 +54,10 @@ export default function CertificateRequests() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = itemsPerPageDefault;
   const { abId } = useAuth();
-  console.log(abId);
+  const { t } = useTranslation();
+  const [actionLoading, setActionLoading] = useState<
+    "approve" | "reject" | null
+  >(null);
 
   useEffect(() => {
     (async () => {
@@ -65,12 +70,12 @@ export default function CertificateRequests() {
         setError(null);
       } catch (err: any) {
         console.error("load requests failed", err);
-        setError(err?.message ?? "Failed to load requests");
+        setError(err?.message ?? null);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [abId]);
 
   const filteredRequests = requests.filter((r) => {
     const q = searchTerm.trim().toLowerCase();
@@ -117,6 +122,7 @@ export default function CertificateRequests() {
     setRemarks(req.rejectionComments ?? "");
   };
   const closeModal = () => {
+    if (actionLoading) return;
     setSelectedRequest(null);
     setRemarks("");
   };
@@ -128,18 +134,17 @@ export default function CertificateRequests() {
     size?: number;
   }) => {
     if (!docRef?.id) {
-      alert("Document ID missing.");
+      alert(t("certificateRequests.alerts.docIdMissing"));
       return;
     }
 
     try {
       const attach = await fetchAttachmentDocById(docRef.id);
       if (!attach) {
-        alert("Attachment not found.");
+        alert(t("certificateRequests.alerts.attachmentNotFound"));
         return;
       }
 
-      // Prefer stored dataUrl, else generate from raw base64
       const dataUrl =
         attach.dataUrl ||
         (attach.base64
@@ -150,7 +155,7 @@ export default function CertificateRequests() {
           : null);
 
       if (!dataUrl) {
-        alert("No file data available.");
+        alert(t("certificateRequests.alerts.noFileData"));
         return;
       }
 
@@ -160,12 +165,14 @@ export default function CertificateRequests() {
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (err) {
       console.error("Failed to load attachment:", err);
-      alert("Failed to load attachment.");
+      alert(t("certificateRequests.alerts.loadAttachmentFailed"));
     }
   };
 
   const handleApprove = async () => {
     if (!selectedRequest) return;
+    setActionLoading("approve"); // 👈 start loader
+
     try {
       const reviewerName = abId ? `AB-${abId}` : "Authority Reviewer";
       const reviewedAt = new Date().toISOString();
@@ -173,38 +180,20 @@ export default function CertificateRequests() {
       const certificate = await getCertificateFilledTemplateById(
         selectedRequest.id
       );
-      console.log(certificate);
 
       const templateJson = certificate!.templateJson;
 
       const dummyUrl = `https://example.com/cert/`;
       const qrDataUrl = await generateQrDataUrl(dummyUrl);
 
-      console.log("before generateFinalPdfWithQr");
-
       const finalPdfBase64 = await generateFinalPdfWithQr({
         templateJson: templateJson,
         qrDataUrl,
       });
 
-      console.log("after generateFinalPdfWithQr");
-
-      //Create QR with dummy data
-
-      //Create Certificate - > Add qr code
-
-      //Convert Certificate to pdf file
-
-      //Send Certificate to Pinata
-
-      //Get Certificate URL -> Send to update Funtion , store in firstore + Blockchain
-
-      // 1) Firebase: move to AcceptedCertificates + update request + student
       const { ipfsId, response } = await uploadPdfToIpfs(finalPdfBase64);
       const publicUrl = response.url;
-      console.log("IPFS upload done. Full response:", response);
-      console.log("Certificate IPFS ID / CID:", ipfsId);
-      // downloadBase64Pdf(finalPdfBase64, "Certificate.pdf");
+      console.log("IPFS upload done. CID:", ipfsId);
 
       const { acceptedId } = await acceptCertificateRequest({
         requestId: selectedRequest.id,
@@ -216,8 +205,7 @@ export default function CertificateRequests() {
 
       console.log("Moved to AcceptedCertificates id:", acceptedId);
 
-      // 2) Blockchain: update asset with same ID -> status = approved
-      const certificateId = selectedRequest.id; // same as Firestore doc id
+      const certificateId = selectedRequest.id;
 
       try {
         const existingAsset = await fetchCertificateFromBlockchain(
@@ -227,7 +215,7 @@ export default function CertificateRequests() {
         const approvedAsset = buildApprovedCertificateAsset(existingAsset, {
           approverAbId: abId ?? null,
           reviewerName,
-          remarks, // whatever is typed in the remarks box (optional)
+          remarks,
           approvedAt: reviewedAt,
         });
 
@@ -244,11 +232,8 @@ export default function CertificateRequests() {
         console.log("Blockchain asset updated to approved:", certificateId);
       } catch (bcErr) {
         console.error("Blockchain update failed:", bcErr);
-        // optional: show alert or just log
-        // alert("Approved in system, but failed to update blockchain. See console.");
       }
 
-      // 3) Refresh list
       const data = await getCertificateRequests({
         authorityBodyId: abId ?? undefined,
       });
@@ -256,16 +241,24 @@ export default function CertificateRequests() {
       closeModal();
     } catch (err: any) {
       console.error("approve failed", err);
-      alert("Failed to approve: " + (err?.message || err));
+      alert(
+        t("certificateRequests.alerts.approveFailed", {
+          message: err?.message || String(err),
+        })
+      );
+    } finally {
+      setActionLoading(null); // 👈 stop loader
     }
   };
 
   const handleReject = async () => {
     if (!selectedRequest) return;
     if (!remarks.trim()) {
-      alert("Please provide remarks before rejecting");
+      alert(t("certificateRequests.alerts.remarksRequired"));
       return;
     }
+    setActionLoading("reject"); // 👈 start loader
+
     try {
       await updateCertificateRequestStatus(selectedRequest.id, {
         status: "rejected",
@@ -279,7 +272,13 @@ export default function CertificateRequests() {
       closeModal();
     } catch (err: any) {
       console.error("reject failed", err);
-      alert("Failed to reject: " + (err?.message || err));
+      alert(
+        t("certificateRequests.alerts.rejectFailed", {
+          message: err?.message || String(err),
+        })
+      );
+    } finally {
+      setActionLoading(null); // 👈 stop loader
     }
   };
 
@@ -289,28 +288,28 @@ export default function CertificateRequests() {
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
             <Clock className="w-3 h-3" />
-            <span>Pending</span>
+            <span>{t("certificateRequests.statusBadge.pending")}</span>
           </span>
         );
       case "approved":
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
             <CheckCircle className="w-3 h-3" />
-            <span>Approved</span>
+            <span>{t("certificateRequests.statusBadge.approved")}</span>
           </span>
         );
       case "rejected":
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
             <XCircle className="w-3 h-3" />
-            <span>Rejected</span>
+            <span>{t("certificateRequests.statusBadge.rejected")}</span>
           </span>
         );
       case "withdrawn":
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
             <Clock className="w-3 h-3" />
-            <span>Withdrawn</span>
+            <span>{t("certificateRequests.statusBadge.withdrawn")}</span>
           </span>
         );
       default:
@@ -319,20 +318,32 @@ export default function CertificateRequests() {
   };
 
   if (loading)
-    return <p className="p-6 text-gray-700">Loading certificate requests…</p>;
-  if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
+    return (
+      <p className="p-6 text-gray-700">{t("certificateRequests.loading")}</p>
+    );
+  if (error)
+    return (
+      <div className="p-6 text-red-600">
+        {t("certificateRequests.errorPrefix")}: {error}
+      </div>
+    );
+
+  const from = filteredRequests.length === 0 ? 0 : startIndex + 1;
+  const to = Math.min(startIndex + itemsPerPage, filteredRequests.length);
 
   return (
     <div className="space-y-6">
       {/* header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold ml-8">Certificate Requests</h1>
+        <h1 className="text-2xl font-bold ml-8">
+          {t("certificateRequests.title")}
+        </h1>
         <button
           onClick={handleExport}
           className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Download className="w-4 h-4" />
-          <span>Export CSV</span>
+          <span>{t("certificateRequests.exportCsv")}</span>
         </button>
       </div>
 
@@ -344,7 +355,7 @@ export default function CertificateRequests() {
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by student, course, agency or ID..."
+              placeholder={t("certificateRequests.searchPlaceholder")}
               className="w-full pl-11 pr-4 py-3 border rounded-lg"
             />
           </div>
@@ -355,11 +366,21 @@ export default function CertificateRequests() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="pl-11 pr-8 py-3 border rounded-lg bg-white min-w-[160px]"
             >
-              <option>All</option>
-              <option>pending</option>
-              <option>approved</option>
-              <option>rejected</option>
-              <option>withdrawn</option>
+              <option value="All">
+                {t("certificateRequests.filters.all")}
+              </option>
+              <option value="pending">
+                {t("certificateRequests.filters.pending")}
+              </option>
+              <option value="approved">
+                {t("certificateRequests.filters.approved")}
+              </option>
+              <option value="rejected">
+                {t("certificateRequests.filters.rejected")}
+              </option>
+              <option value="withdrawn">
+                {t("certificateRequests.filters.withdrawn")}
+              </option>
             </select>
           </div>
         </div>
@@ -369,12 +390,24 @@ export default function CertificateRequests() {
           <table className="w-full">
             <thead>
               <tr className="border-b text-lg">
-                <th className="text-left py-3 px-4">Student</th>
-                <th className="text-left py-3 px-4">Course</th>
-                <th className="text-left py-3 px-4">Agency</th>
-                <th className="text-left py-3 px-4">Submitted</th>
-                <th className="text-left py-3 px-4">Status</th>
-                <th className="text-left py-3 px-4">Actions</th>
+                <th className="text-left py-3 px-4">
+                  {t("certificateRequests.table.student")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("certificateRequests.table.course")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("certificateRequests.table.agency")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("certificateRequests.table.submitted")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("certificateRequests.table.status")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("certificateRequests.table.actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -384,10 +417,12 @@ export default function CertificateRequests() {
                   <td className="py-4 px-4">
                     <div>
                       <div className="font-medium text-lg">
-                        {r.studentName || "Unknown student"}
+                        {r.studentName ||
+                          t("certificateRequests.table.unknownStudent")}
                       </div>
                       <div className="text-sm font-mono text-gray-500">
-                        ID: {r.studentId || "—"}
+                        {t("certificateRequests.table.idLabel")}{" "}
+                        {r.studentId || t("certificateRequests.table.empty")}
                       </div>
                       {r.studentEmail && (
                         <div className="text-sm text-gray-500">
@@ -399,24 +434,25 @@ export default function CertificateRequests() {
 
                   {/* COURSE: course name only in table */}
                   <td className="py-4 px-4 text-base">
-                    {r.courseTitle || "—"}
+                    {r.courseTitle || t("certificateRequests.table.empty")}
                   </td>
 
                   {/* AGENCY: agency name only in table */}
-                  <td className="py-4 px-4 text-base">{r.agencyName || "—"}</td>
+                  <td className="py-4 px-4 text-base">
+                    {r.agencyName || t("certificateRequests.table.empty")}
+                  </td>
 
                   {/* SUBMITTED DATE */}
                   <td className="py-4 px-4 text-base">
                     {r.submittedAt
                       ? new Date(
-                          // support both Timestamp + ISO string
                           (r.submittedAt as any)?.seconds
                             ? (r.submittedAt as any).toDate()
                             : r.submittedAt
                         )
                           .toISOString()
                           .split("T")[0]
-                      : "—"}
+                      : t("certificateRequests.table.empty")}
                   </td>
 
                   {/* STATUS */}
@@ -430,7 +466,7 @@ export default function CertificateRequests() {
                       onClick={() => openModal(r)}
                       className="px-3 py-1 rounded bg-blue-50 text-blue-600"
                     >
-                      View
+                      {t("certificateRequests.table.view")}
                     </button>
                   </td>
                 </tr>
@@ -443,9 +479,11 @@ export default function CertificateRequests() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
             <p className="text-sm">
-              Showing {startIndex + 1}-
-              {Math.min(startIndex + itemsPerPage, filteredRequests.length)} of{" "}
-              {filteredRequests.length}
+              {t("certificateRequests.pagination.showing", {
+                from,
+                to,
+                total: filteredRequests.length,
+              })}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -456,7 +494,10 @@ export default function CertificateRequests() {
                 <ChevronLeft />
               </button>
               <span>
-                Page {currentPage} of {totalPages}
+                {t("certificateRequests.pagination.pageOf", {
+                  page: currentPage,
+                  totalPages,
+                })}
               </span>
               <button
                 onClick={() =>
@@ -482,10 +523,12 @@ export default function CertificateRequests() {
                 <FileText />
                 <div>
                   <div className="font-semibold">
-                    {selectedRequest.courseTitle || "Certificate Request"}
+                    {selectedRequest.courseTitle ||
+                      t("certificateRequests.modal.titleFallback")}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {selectedRequest.studentName || "—"}
+                    {selectedRequest.studentName ||
+                      t("certificateRequests.table.empty")}
                   </div>
                 </div>
               </div>
@@ -501,23 +544,32 @@ export default function CertificateRequests() {
               {/* IDs + Names section */}
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Request ID</p>
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("certificateRequests.modal.requestId")}
+                  </p>
                   <p className="font-mono text-xs break-all">
                     {selectedRequest.id}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("certificateRequests.modal.status")}
+                  </p>
                   {getStatusBadge(selectedRequest.status ?? "")}
                 </div>
 
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Student</p>
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("certificateRequests.modal.student")}
+                  </p>
                   <p className="font-medium">
-                    {selectedRequest.studentName || "—"}
+                    {selectedRequest.studentName ||
+                      t("certificateRequests.table.empty")}
                   </p>
                   <p className="text-xs font-mono text-gray-500">
-                    ID: {selectedRequest.studentId || "—"}
+                    {t("certificateRequests.table.idLabel")}{" "}
+                    {selectedRequest.studentId ||
+                      t("certificateRequests.table.empty")}
                   </p>
                   {selectedRequest.studentEmail && (
                     <p className="text-xs text-gray-500">
@@ -527,27 +579,39 @@ export default function CertificateRequests() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Course</p>
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("certificateRequests.modal.course")}
+                  </p>
                   <p className="font-medium">
-                    {selectedRequest.courseTitle || "—"}
+                    {selectedRequest.courseTitle ||
+                      t("certificateRequests.table.empty")}
                   </p>
                   <p className="text-xs font-mono text-gray-500">
-                    ID: {selectedRequest.courseId || "—"}
+                    {t("certificateRequests.modal.courseIdLabel")}{" "}
+                    {selectedRequest.courseId ||
+                      t("certificateRequests.table.empty")}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Agency</p>
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("certificateRequests.modal.agency")}
+                  </p>
                   <p className="font-medium">
-                    {selectedRequest.agencyName || "—"}
+                    {selectedRequest.agencyName ||
+                      t("certificateRequests.table.empty")}
                   </p>
                   <p className="text-xs font-mono text-gray-500">
-                    User ID: {selectedRequest.agencyUserId || "—"}
+                    {t("certificateRequests.modal.agencyUserIdLabel")}{" "}
+                    {selectedRequest.agencyUserId ||
+                      t("certificateRequests.table.empty")}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Submitted At</p>
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("certificateRequests.modal.submittedAt")}
+                  </p>
                   <p className="text-sm">
                     {selectedRequest.submittedAt
                       ? new Date(
@@ -557,26 +621,34 @@ export default function CertificateRequests() {
                         )
                           .toISOString()
                           .split("T")[0]
-                      : "—"}
+                      : t("certificateRequests.table.empty")}
                   </p>
                 </div>
               </div>
 
               {/* Justification */}
               <div>
-                <label className="text-sm font-medium">Justification</label>
+                <label className="text-sm font-medium">
+                  {t("certificateRequests.modal.justification")}
+                </label>
                 <p className="mt-1 text-sm">
-                  {selectedRequest.rationale || selectedRequest.notes || "—"}
+                  {selectedRequest.rationale ||
+                    selectedRequest.notes ||
+                    t("certificateRequests.table.empty")}
                 </p>
               </div>
 
               {/* Attachments */}
               <div>
-                <label className="text-sm font-medium">Attachments</label>
+                <label className="text-sm font-medium">
+                  {t("certificateRequests.modal.attachments")}
+                </label>
                 <div className="space-y-2 mt-2">
                   {(!selectedRequest.attachments ||
                     selectedRequest.attachments.length === 0) && (
-                    <p className="text-sm text-gray-500">No attachments</p>
+                    <p className="text-sm text-gray-500">
+                      {t("certificateRequests.modal.noAttachments")}
+                    </p>
                   )}
                   {selectedRequest.attachments?.map((doc) => (
                     <div
@@ -587,7 +659,10 @@ export default function CertificateRequests() {
                         <FileText />
                         <div>
                           <div className="font-medium text-sm">
-                            {doc.name || "Attachment"}
+                            {doc.name ||
+                              t(
+                                "certificateRequests.modal.attachmentFallbackName"
+                              )}
                           </div>
                           <div className="text-xs text-gray-500">
                             {doc.type || "file"} •{" "}
@@ -605,7 +680,7 @@ export default function CertificateRequests() {
                         }}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                       >
-                        View
+                        {t("certificateRequests.modal.viewAttachment")}
                       </a>
                     </div>
                   ))}
@@ -614,7 +689,9 @@ export default function CertificateRequests() {
 
               {/* Remarks */}
               <div>
-                <label className="text-sm font-medium">Remarks</label>
+                <label className="text-sm font-medium">
+                  {t("certificateRequests.modal.remarks")}
+                </label>
                 <textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
@@ -628,15 +705,23 @@ export default function CertificateRequests() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleApprove}
-                    className="flex-1 bg-green-600 text-white py-2 rounded"
+                    disabled={!!actionLoading}
+                    className="flex-1 bg-green-600 text-white py-2 rounded flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Approve
+                    {actionLoading === "approve" && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
+                    <span>{t("certificateRequests.modal.approve")}</span>
                   </button>
                   <button
                     onClick={handleReject}
-                    className="flex-1 bg-red-600 text-white py-2 rounded"
+                    disabled={!!actionLoading}
+                    className="flex-1 bg-red-600 text-white py-2 rounded flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Reject
+                    {actionLoading === "reject" && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
+                    <span>{t("certificateRequests.modal.reject")}</span>
                   </button>
                 </div>
               )}
@@ -649,7 +734,6 @@ export default function CertificateRequests() {
 }
 
 function downloadBase64Pdf(base64: string, filename = "certificate.pdf") {
-  // Convert base64 to binary
   const byteCharacters = atob(base64);
   const byteNumbers = new Array(byteCharacters.length);
 
@@ -658,17 +742,13 @@ function downloadBase64Pdf(base64: string, filename = "certificate.pdf") {
   }
 
   const byteArray = new Uint8Array(byteNumbers);
-
-  // Create blob
   const blob = new Blob([byteArray], { type: "application/pdf" });
 
-  // Create link
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;
   link.click();
 
-  // Cleanup
   URL.revokeObjectURL(link.href);
 }
 
@@ -691,17 +771,14 @@ function base64ToBlob(base64: string, contentType = "application/pdf") {
 }
 
 async function uploadPdfToIpfs(finalPdfBase64: string) {
-  // 1) convert base64 → Blob → File
   const pdfBlob = base64ToBlob(finalPdfBase64, "application/pdf");
   const file = new File([pdfBlob], "certificate.pdf", {
     type: "application/pdf",
   });
 
-  // 2) build multipart/form-data body
   const formData = new FormData();
   formData.append("file", file);
 
-  // 3) POST to your IPFS upload endpoint
   const res = await fetch("https://ipfs-mze2.onrender.com/upload", {
     method: "POST",
     body: formData,
@@ -715,8 +792,6 @@ async function uploadPdfToIpfs(finalPdfBase64: string) {
   }
 
   const json = await res.json().catch(() => ({} as any));
-
-  // Try all common field names; you can tune this once you see real response
   const ipfsId = json.cid || json.hash || json.id || json.IpfsHash || null;
 
   console.log("IPFS upload response:", json);

@@ -1,3 +1,4 @@
+// src/layout/Layout.tsx (or wherever this file lives)
 import React from "react";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -10,6 +11,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
+import { useTranslation } from "react-i18next";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,14 +27,23 @@ const Layout: React.FC<LayoutProps> = ({
   const { user, role, logout } = useAuth();
   const [mobileProfileOpen, setMobileProfileOpen] = React.useState(false);
   const { language, setLanguage } = useLanguage();
+  const { t } = useTranslation();
 
   const navigationItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "certificates", label: "Certificate Requests", icon: FileCheck },
-    { id: "claims", label: "Course Claims", icon: FileText },
-    { id: "agencies", label: "Agencies", icon: Building2 },
-    { id: "courses", label: "Courses", icon: BookOpen },
-    { id: "profile", label: "Profile", icon: User },
+    {
+      id: "dashboard",
+      label: t("layout.nav.dashboard"),
+      icon: LayoutDashboard,
+    },
+    {
+      id: "certificates",
+      label: t("layout.nav.certificates"),
+      icon: FileCheck,
+    },
+    { id: "claims", label: t("layout.nav.claims"), icon: FileText },
+    { id: "agencies", label: t("layout.nav.agencies"), icon: Building2 },
+    { id: "courses", label: t("layout.nav.courses"), icon: BookOpen },
+    { id: "profile", label: t("layout.nav.profile"), icon: User },
   ];
 
   const primaryNavItems = navigationItems.slice(0, 5); // for mobile bottom nav
@@ -48,9 +59,11 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">
-              Authority Portal
+              {t("layout.brand.title")}
             </h1>
-            <p className="text-base text-gray-500">Admin Dashboard</p>
+            <p className="text-base text-gray-500">
+              {t("layout.brand.subtitle")}
+            </p>
           </div>
         </div>
 
@@ -63,14 +76,18 @@ const Layout: React.FC<LayoutProps> = ({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xl font-medium transition-colors ${
+                className={`w-full rounded-lg text-xl font-medium transition-colors ${
                   isActive
                     ? "bg-blue-50 text-blue-700"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
-                <Icon className="w-6 h-6" />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <Icon className="w-6 h-6 flex-shrink-0" />
+                  <span className="flex-1 text-left break-words leading-snug">
+                    {item.label}
+                  </span>
+                </div>
               </button>
             );
           })}
@@ -81,20 +98,20 @@ const Layout: React.FC<LayoutProps> = ({
           {/* Language selector */}
           <div>
             <label className="block text-base font-semibold text-gray-500 mb-1">
-              Language
+              {t("layout.language.label")}
             </label>
             <div className="relative">
               <select
                 value={language}
                 onChange={(e) =>
-                  setLanguage(e.target.value as "en" | "hi" | "ta" | "raj")
+                  setLanguage(e.target.value as "en" | "hi" | "ta" | "bn")
                 }
                 className="w-full text-sm rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
               >
-                <option value="en">English</option>
-                <option value="hi">हिन्दी</option>
-                <option value="ta">Tamil</option>
-                <option value="raj">Rajasthani</option>
+                <option value="en">{t("layout.language.options.en")}</option>
+                <option value="hi">{t("layout.language.options.hi")}</option>
+                <option value="ta">{t("layout.language.options.ta")}</option>
+                <option value="bn">{t("layout.language.options.bn")}</option>
               </select>
             </div>
           </div>
@@ -103,10 +120,10 @@ const Layout: React.FC<LayoutProps> = ({
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
               <span className="text-base font-medium text-gray-900 truncate">
-                {user?.email || "Authority Admin"}
+                {user?.email || t("layout.userBlock.fallbackEmailName")}
               </span>
               <span className="text-sm text-gray-500 truncate">
-                {role || "Authority Body"}
+                {role || t("layout.userBlock.fallbackRole")}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -142,7 +159,7 @@ const Layout: React.FC<LayoutProps> = ({
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900">
-                  Authority Portal
+                  {t("layout.brand.title")}
                 </h1>
               </div>
             </div>
@@ -170,7 +187,7 @@ const Layout: React.FC<LayoutProps> = ({
                     }`}
                   >
                     <User className="w-4 h-4" />
-                    <span>View Profile</span>
+                    <span>{t("layout.mobileMenu.viewProfile")}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -180,7 +197,7 @@ const Layout: React.FC<LayoutProps> = ({
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-600 hover:bg-red-50"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
+                    <span>{t("layout.mobileMenu.logout")}</span>
                   </button>
                 </div>
               )}
@@ -213,6 +230,7 @@ const Layout: React.FC<LayoutProps> = ({
                   }`}
                 >
                   <Icon className="w-5 h-5" />
+                  {/* Short label for mobile (first word still fine) */}
                   <span className="text-xs font-medium">
                     {item.label.split(" ")[0]}
                   </span>

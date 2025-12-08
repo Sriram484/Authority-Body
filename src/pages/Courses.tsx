@@ -22,9 +22,12 @@ import {
   updateCourseForAuthority,
   deleteCourseForAuthority,
 } from "../firebase/course-service";
+import { useTranslation } from "react-i18next";
 
 const Courses: React.FC = () => {
   const { abId } = useAuth(); // Authority_Bodies doc id (uid)
+  const { t } = useTranslation();
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,14 +42,14 @@ const Courses: React.FC = () => {
     tags: "",
     duration: "",
     level: "Beginner",
-    nsqfLevel: "", // string for input, converted to number
+    nsqfLevel: "",
   });
 
   /* ---------- load courses for this Authority Body ---------- */
   useEffect(() => {
     const load = async () => {
       if (!abId) {
-        setError("No Authority Body id (abId) in context.");
+        setError(t("courses.alerts.noAbContext"));
         setLoading(false);
         return;
       }
@@ -57,13 +60,13 @@ const Courses: React.FC = () => {
         setError(null);
       } catch (err: any) {
         console.error(err);
-        setError(err.message || "Failed to load courses");
+        setError(err.message || t("courses.alerts.loadFailed"));
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [abId]);
+  }, [abId, t]);
 
   /* ---------- derived list ---------- */
   const filteredCourses = courses.filter((course) => {
@@ -73,13 +76,10 @@ const Courses: React.FC = () => {
     const q = searchTerm.toLowerCase();
 
     const matchesSearch =
-      title.includes(q) ||
-      desc.includes(q) ||
-      tags.some((t) => t.includes(q));
+      title.includes(q) || desc.includes(q) || tags.some((t) => t.includes(q));
 
     const level = course.level || "";
-    const matchesLevel =
-      levelFilter === "All" || level === levelFilter;
+    const matchesLevel = levelFilter === "All" || level === levelFilter;
 
     return matchesSearch && matchesLevel;
   });
@@ -95,7 +95,7 @@ const Courses: React.FC = () => {
       Level: c.level,
       NSQF_Level: c.nsqfLevel ?? "",
     }));
-    exportToCSV(exportData, "courses");
+    exportToCSV(exportData, t("courses.tableExport.filename"));
   };
 
   const openAddModal = () => {
@@ -120,9 +120,7 @@ const Courses: React.FC = () => {
       duration: course.duration || "",
       level: course.level || "Beginner",
       nsqfLevel:
-        typeof course.nsqfLevel === "number"
-          ? String(course.nsqfLevel)
-          : "",
+        typeof course.nsqfLevel === "number" ? String(course.nsqfLevel) : "",
     });
     setShowModal(true);
   };
@@ -144,11 +142,11 @@ const Courses: React.FC = () => {
     e.preventDefault();
 
     if (!formData.title || !formData.description || !formData.duration) {
-      alert("Please fill in all required fields");
+      alert(t("courses.alerts.requiredFields"));
       return;
     }
     if (!abId) {
-      alert("No Authority Body id (abId). Cannot save course.");
+      alert(t("courses.alerts.noAbIdSave"));
       return;
     }
 
@@ -159,13 +157,14 @@ const Courses: React.FC = () => {
 
     const nsqfVal = formData.nsqfLevel.trim();
     const nsqfLevel =
-      nsqfVal === "" ? null : Number.isNaN(Number(nsqfVal))
+      nsqfVal === ""
+        ? null
+        : Number.isNaN(Number(nsqfVal))
         ? null
         : Number(nsqfVal);
 
     try {
       if (editingCourse) {
-        // UPDATE
         const updated = await updateCourseForAuthority(abId, editingCourse.id, {
           courseName: formData.title,
           description: formData.description,
@@ -179,7 +178,6 @@ const Courses: React.FC = () => {
           prev.map((c) => (c.id === updated.id ? updated : c))
         );
       } else {
-        // CREATE
         const created = await createCourseForAuthority(abId, {
           courseName: formData.title,
           description: formData.description,
@@ -195,16 +193,16 @@ const Courses: React.FC = () => {
       closeModal();
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to save course");
+      alert(err.message || t("courses.alerts.saveFailed"));
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this course?")) {
+    if (!window.confirm(t("courses.alerts.confirmDelete"))) {
       return;
     }
     if (!abId) {
-      alert("No Authority Body id (abId). Cannot delete course.");
+      alert(t("courses.alerts.noAbIdDelete"));
       return;
     }
 
@@ -213,7 +211,7 @@ const Courses: React.FC = () => {
       setCourses((prev) => prev.filter((c) => c.id !== id));
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to delete course");
+      alert(err.message || t("courses.alerts.deleteFailed"));
     }
   };
 
@@ -223,31 +221,40 @@ const Courses: React.FC = () => {
       Intermediate: "bg-blue-100 text-blue-700",
       Advanced: "bg-red-100 text-red-700",
     };
+
+    const label = level
+      ? t(`courses.levelLabels.${level}`)
+      : t("courses.levelLabels.na");
+
     return (
       <span
         className={`px-3 py-1 rounded-full text-xs font-medium ${
           colors[level] || "bg-gray-100 text-gray-700"
         }`}
       >
-        {level || "N/A"}
+        {label}
       </span>
     );
   };
 
   if (loading) {
-    return <p className="p-6 text-gray-700">Loading courses…</p>;
+    return <p className="p-6 text-gray-700">{t("courses.loading")}</p>;
   }
 
   if (error) {
-    return <div className="p-6 text-red-600">Error: {error}</div>;
+    return (
+      <div className="p-6 text-red-600">
+        {t("courses.errorPrefix")}: {error}
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Course Management
+        <h1 className="text-2xl font-bold text-gray-900 ml-8">
+          {t("courses.title")}
         </h1>
         <div className="flex space-x-2">
           <button
@@ -255,20 +262,20 @@ const Courses: React.FC = () => {
             className="inline-flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             <Download className="w-4 h-4" />
-            <span>Export</span>
+            <span>{t("courses.header.export")}</span>
           </button>
           <button
             onClick={openAddModal}
             className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Course</span>
+            <span>{t("courses.header.addCourse")}</span>
           </button>
         </div>
       </div>
 
       {/* Filters + list */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 ml-8">
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -276,7 +283,7 @@ const Courses: React.FC = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search courses by title, description, or tags..."
+              placeholder={t("courses.filters.searchPlaceholder")}
               className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -287,10 +294,12 @@ const Courses: React.FC = () => {
               onChange={(e) => setLevelFilter(e.target.value)}
               className="pl-11 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white min-w-[160px]"
             >
-              <option>All</option>
-              <option>Beginner</option>
-              <option>Intermediate</option>
-              <option>Advanced</option>
+              <option value="All">{t("courses.filters.all")}</option>
+              <option value="Beginner">{t("courses.filters.beginner")}</option>
+              <option value="Intermediate">
+                {t("courses.filters.intermediate")}
+              </option>
+              <option value="Advanced">{t("courses.filters.advanced")}</option>
             </select>
           </div>
         </div>
@@ -320,7 +329,7 @@ const Courses: React.FC = () => {
                       )}
                     </div>
                     <p className="text-sm text-gray-600 line-clamp-2">
-                      {course.description || "No description"}
+                      {course.description || t("courses.cards.noDescription")}
                     </p>
                   </div>
                 </div>
@@ -329,14 +338,19 @@ const Courses: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Clock className="w-4 h-4" />
-                  <span>{course.duration || "—"}</span>
+                  <span>
+                    {course.duration || t("courses.cards.durationEmpty")}
+                  </span>
                 </div>
                 <div>{getLevelBadge(course.level)}</div>
-                {course.nsqfLevel !== null && (
-                  <span className="text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded-full">
-                    NSQF {course.nsqfLevel}
-                  </span>
-                )}
+                {course.nsqfLevel !== null &&
+                  course.nsqfLevel !== undefined && (
+                    <span className="text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded-full">
+                      {t("courses.cards.nsqfBadge", {
+                        level: course.nsqfLevel,
+                      })}
+                    </span>
+                  )}
               </div>
 
               <div className="mb-4">
@@ -359,14 +373,18 @@ const Courses: React.FC = () => {
                   className="flex-1 inline-flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
                 >
                   <Edit className="w-4 h-4" />
-                  <span className="text-sm font-medium">Edit</span>
+                  <span className="text-sm font-medium">
+                    {t("courses.cards.actions.edit")}
+                  </span>
                 </button>
                 <button
                   onClick={() => handleDelete(course.id)}
                   className="flex-1 inline-flex items-center justify-center space-x-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span className="text-sm font-medium">Delete</span>
+                  <span className="text-sm font-medium">
+                    {t("courses.cards.actions.delete")}
+                  </span>
                 </button>
               </div>
             </div>
@@ -374,7 +392,9 @@ const Courses: React.FC = () => {
         </div>
 
         {filteredCourses.length === 0 && (
-          <p className="text-center text-gray-500 py-12">No courses found</p>
+          <p className="text-center text-gray-500 py-12">
+            {t("courses.cards.noCourses")}
+          </p>
         )}
       </div>
 
@@ -384,7 +404,9 @@ const Courses: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
-                {editingCourse ? "Edit Course" : "Add New Course"}
+                {editingCourse
+                  ? t("courses.modal.editTitle")
+                  : t("courses.modal.addTitle")}
               </h2>
               <button
                 onClick={closeModal}
@@ -397,7 +419,8 @@ const Courses: React.FC = () => {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Course Title <span className="text-red-500">*</span>
+                  {t("courses.modal.courseTitleLabel")}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -406,14 +429,15 @@ const Courses: React.FC = () => {
                     setFormData({ ...formData, title: e.target.value })
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Advanced Data Analytics"
+                  placeholder={t("courses.modal.courseTitlePlaceholder")}
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description <span className="text-red-500">*</span>
+                  {t("courses.modal.descriptionLabel")}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={formData.description}
@@ -425,14 +449,14 @@ const Courses: React.FC = () => {
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   rows={4}
-                  placeholder="Comprehensive program covering data mining, statistical analysis..."
+                  placeholder={t("courses.modal.descriptionPlaceholder")}
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tags (comma-separated)
+                  {t("courses.modal.tagsLabel")}
                 </label>
                 <input
                   type="text"
@@ -441,14 +465,15 @@ const Courses: React.FC = () => {
                     setFormData({ ...formData, tags: e.target.value })
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Cloud, Security, Networking"
+                  placeholder={t("courses.modal.tagsPlaceholder")}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration <span className="text-red-500">*</span>
+                    {t("courses.modal.durationLabel")}{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -460,14 +485,15 @@ const Courses: React.FC = () => {
                       })
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="12 weeks"
+                    placeholder={t("courses.modal.durationPlaceholder")}
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Level <span className="text-red-500">*</span>
+                    {t("courses.modal.levelLabel")}{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.level}
@@ -476,16 +502,22 @@ const Courses: React.FC = () => {
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option>Beginner</option>
-                    <option>Intermediate</option>
-                    <option>Advanced</option>
+                    <option value="Beginner">
+                      {t("courses.filters.beginner")}
+                    </option>
+                    <option value="Intermediate">
+                      {t("courses.filters.intermediate")}
+                    </option>
+                    <option value="Advanced">
+                      {t("courses.filters.advanced")}
+                    </option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  NSQF Level
+                  {t("courses.modal.nsqfLabel")}
                 </label>
                 <input
                   type="number"
@@ -499,7 +531,7 @@ const Courses: React.FC = () => {
                     })
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="4"
+                  placeholder={t("courses.modal.nsqfPlaceholder")}
                 />
               </div>
 
@@ -509,13 +541,15 @@ const Courses: React.FC = () => {
                   onClick={closeModal}
                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
-                  Cancel
+                  {t("courses.modal.cancel")}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
-                  {editingCourse ? "Update Course" : "Add Course"}
+                  {editingCourse
+                    ? t("courses.modal.submitUpdate")
+                    : t("courses.modal.submitAdd")}
                 </button>
               </div>
             </form>

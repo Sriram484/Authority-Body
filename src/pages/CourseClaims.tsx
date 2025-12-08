@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Tag,
+  Loader2,
 } from "lucide-react";
 import { exportToCSV } from "../utils/exportCSV";
 import {
@@ -26,11 +27,13 @@ import {
   dataUrlToBlob,
   normalizeToDataUrl,
 } from "../utils/attachmentConverters";
+import { useTranslation } from "react-i18next";
 
 const itemsPerPage = 10;
 
 const CourseClaims: React.FC = () => {
   const { abId } = useAuth();
+  const { t } = useTranslation();
 
   const [claims, setClaims] = useState<CourseClaimRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +47,12 @@ const CourseClaims: React.FC = () => {
   const [remarks, setRemarks] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // 🔍 PDF preview state (for mobile)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // loader for approve/reject
+  const [actionLoading, setActionLoading] = useState<
+    "approve" | "reject" | null
+  >(null);
 
   /* ---------- load from Firestore ---------- */
   useEffect(() => {
@@ -57,20 +64,21 @@ const CourseClaims: React.FC = () => {
         setError(null);
       } catch (err: any) {
         console.error(err);
-        setError(err.message || "Failed to load course claims");
+        setError(err.message || t("courseClaims.alerts.loadAttachmentFailed"));
       } finally {
         setLoading(false);
       }
     };
     loadClaims();
-  }, [abId]);
+  }, [abId, t]);
 
   /* ---------- derived lists ---------- */
   const filteredClaims = claims.filter((claim) => {
+    const q = searchTerm.toLowerCase();
     const matchesSearch =
-      claim.courseTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      claim.agencyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (claim.rationale || "").toLowerCase().includes(searchTerm.toLowerCase());
+      claim.courseTitle.toLowerCase().includes(q) ||
+      claim.agencyName.toLowerCase().includes(q) ||
+      (claim.rationale || "").toLowerCase().includes(q);
 
     const matchesStatus =
       statusFilter === "All" ||
@@ -78,12 +86,16 @@ const CourseClaims: React.FC = () => {
 
     return matchesSearch && matchesStatus;
   });
+
   const totalPages = Math.ceil(filteredClaims.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedClaims = filteredClaims.slice(
     startIndex,
     startIndex + itemsPerPage
   );
+
+  const from = filteredClaims.length === 0 ? 0 : startIndex + 1;
+  const to = Math.min(startIndex + itemsPerPage, filteredClaims.length);
 
   /* ---------- helpers ---------- */
   const handleExport = () => {
@@ -105,6 +117,7 @@ const CourseClaims: React.FC = () => {
   };
 
   const closeModal = () => {
+    if (actionLoading) return; // don't close while processing
     setSelectedClaim(null);
     setRemarks("");
   };
@@ -115,28 +128,28 @@ const CourseClaims: React.FC = () => {
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
             <Clock className="w-3 h-3" />
-            <span>Pending</span>
+            <span>{t("courseClaims.statusBadge.pending")}</span>
           </span>
         );
       case "approved":
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
             <CheckCircle className="w-3 h-3" />
-            <span>Approved</span>
+            <span>{t("courseClaims.statusBadge.approved")}</span>
           </span>
         );
       case "rejected":
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
             <XCircle className="w-3 h-3" />
-            <span>Rejected</span>
+            <span>{t("courseClaims.statusBadge.rejected")}</span>
           </span>
         );
       case "withdrawn":
         return (
           <span className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
             <Clock className="w-3 h-3" />
-            <span>Withdrawn</span>
+            <span>{t("courseClaims.statusBadge.withdrawn")}</span>
           </span>
         );
       default:
@@ -148,7 +161,7 @@ const CourseClaims: React.FC = () => {
     if (!level && level !== 0) {
       return (
         <span className="px-2 py-1 rounded text-sm font-medium bg-gray-100 text-gray-700">
-          N/A
+          {t("courseClaims.level.na")}
         </span>
       );
     }
@@ -162,6 +175,7 @@ const CourseClaims: React.FC = () => {
   /* ---------- approve / reject handlers ---------- */
   const handleApprove = async () => {
     if (!selectedClaim) return;
+    setActionLoading("approve");
     try {
       await approveCourseClaimRequest(selectedClaim.id, abId || "");
 
@@ -169,17 +183,24 @@ const CourseClaims: React.FC = () => {
       closeModal();
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to approve claim");
+      alert(
+        t("courseClaims.alerts.approveFailed", {
+          message: err.message || String(err),
+        })
+      );
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleReject = async () => {
     if (!selectedClaim) return;
     if (!remarks.trim()) {
-      alert("Please provide remarks before rejecting");
+      alert(t("courseClaims.alerts.remarksRequired"));
       return;
     }
 
+    setActionLoading("reject");
     try {
       const updated = await rejectCourseClaimRequest(
         selectedClaim.id,
@@ -193,7 +214,13 @@ const CourseClaims: React.FC = () => {
       closeModal();
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Failed to reject claim");
+      alert(
+        t("courseClaims.alerts.rejectFailed", {
+          message: err.message || String(err),
+        })
+      );
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -204,25 +231,28 @@ const CourseClaims: React.FC = () => {
     size?: number;
   }) => {
     if (!docRef?.id) {
-      alert("Document ID missing.");
+      alert(t("courseClaims.alerts.docIdMissing"));
       return;
     }
 
     try {
       const attach = await fetchAttachmentDocById(docRef.id);
       if (!attach) {
-        alert("Attachment not found.");
+        alert(t("courseClaims.alerts.attachmentNotFound"));
         return;
       }
 
       const dataUrl =
         attach.dataUrl ||
         (attach.base64
-          ? normalizeToDataUrl(attach.base64, attach.mimeType ?? docRef.type)
+          ? normalizeToDataUrl(
+              attach.base64,
+              attach.mimeType ?? docRef.type ?? "application/pdf"
+            )
           : null);
 
       if (!dataUrl) {
-        alert("No file data available.");
+        alert(t("courseClaims.alerts.noFileData"));
         return;
       }
 
@@ -233,16 +263,14 @@ const CourseClaims: React.FC = () => {
         typeof window !== "undefined" ? window.innerWidth >= 1024 : true;
 
       if (isDesktop) {
-        // 💻 PC: behave as before
         window.open(url, "_blank");
         setTimeout(() => URL.revokeObjectURL(url), 10000);
       } else {
-        // 📱 Mobile: show full-screen iframe viewer
         setPreviewUrl(url);
       }
     } catch (err) {
       console.error("Failed to load attachment:", err);
-      alert("Failed to load attachment.");
+      alert(t("courseClaims.alerts.loadAttachmentFailed"));
     }
   };
 
@@ -255,11 +283,15 @@ const CourseClaims: React.FC = () => {
 
   /* ---------- render ---------- */
   if (loading) {
-    return <p className="p-6 text-gray-700">Loading course claim requests…</p>;
+    return <p className="p-6 text-gray-700">{t("courseClaims.loading")}</p>;
   }
 
   if (error) {
-    return <div className="p-6 text-red-600">Error: {error}</div>;
+    return (
+      <div className="p-6 text-red-600">
+        {t("courseClaims.errorPrefix")}: {error}
+      </div>
+    );
   }
 
   return (
@@ -267,14 +299,14 @@ const CourseClaims: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900 ml-8">
-          Course Claim Requests
+          {t("courseClaims.title")}
         </h1>
         <button
           onClick={handleExport}
           className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Download className="w-4 h-4" />
-          <span>Export CSV</span>
+          <span>{t("courseClaims.exportCsv")}</span>
         </button>
       </div>
 
@@ -287,7 +319,7 @@ const CourseClaims: React.FC = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by course title, agency, or rationale..."
+              placeholder={t("courseClaims.searchPlaceholder")}
               className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -298,11 +330,19 @@ const CourseClaims: React.FC = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="pl-11 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white min-w-[160px]"
             >
-              <option>All</option>
-              <option>Pending</option>
-              <option>Approved</option>
-              <option>Rejected</option>
-              <option>Withdrawn</option>
+              <option value="All">{t("courseClaims.filters.all")}</option>
+              <option value="Pending">
+                {t("courseClaims.filters.pending")}
+              </option>
+              <option value="Approved">
+                {t("courseClaims.filters.approved")}
+              </option>
+              <option value="Rejected">
+                {t("courseClaims.filters.rejected")}
+              </option>
+              <option value="Withdrawn">
+                {t("courseClaims.filters.withdrawn")}
+              </option>
             </select>
           </div>
         </div>
@@ -312,12 +352,24 @@ const CourseClaims: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 text-lg">
-                <th className="text-left py-3 px-4">Course Title</th>
-                <th className="text-left py-3 px-4">Agency</th>
-                <th className="text-left py-3 px-4">Level</th>
-                <th className="text-left py-3 px-4">Submitted</th>
-                <th className="text-left py-3 px-4">Status</th>
-                <th className="text-left py-3 px-4">Actions</th>
+                <th className="text-left py-3 px-4">
+                  {t("courseClaims.table.courseTitle")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("courseClaims.table.agency")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("courseClaims.table.level")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("courseClaims.table.submitted")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("courseClaims.table.status")}
+                </th>
+                <th className="text-left py-3 px-4">
+                  {t("courseClaims.table.actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -345,7 +397,9 @@ const CourseClaims: React.FC = () => {
                       className="inline-flex items-center space-x-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
                     >
                       <Eye className="w-4 h-4" />
-                      <span className="text-sm font-medium">View</span>
+                      <span className="text-sm font-medium">
+                        {t("courseClaims.table.view")}
+                      </span>
                     </button>
                   </td>
                 </tr>
@@ -357,7 +411,7 @@ const CourseClaims: React.FC = () => {
                     colSpan={6}
                     className="py-6 text-center text-sm text-gray-500"
                   >
-                    No course claim requests found.
+                    {t("courseClaims.table.noData")}
                   </td>
                 </tr>
               )}
@@ -369,9 +423,11 @@ const CourseClaims: React.FC = () => {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600">
-              Showing {startIndex + 1}-
-              {Math.min(startIndex + itemsPerPage, filteredClaims.length)} of{" "}
-              {filteredClaims.length}
+              {t("courseClaims.pagination.showing", {
+                from,
+                to,
+                total: filteredClaims.length,
+              })}
             </p>
             <div className="flex items-center space-x-2">
               <button
@@ -382,7 +438,10 @@ const CourseClaims: React.FC = () => {
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <span className="text-sm text-gray-700">
-                Page {currentPage} of {totalPages}
+                {t("courseClaims.pagination.pageOf", {
+                  page: currentPage,
+                  totalPages,
+                })}
               </span>
               <button
                 onClick={() =>
@@ -404,11 +463,12 @@ const CourseClaims: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
-                Course Claim Details
+                {t("courseClaims.modal.title")}
               </h2>
               <button
                 onClick={closeModal}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                disabled={!!actionLoading}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -417,7 +477,7 @@ const CourseClaims: React.FC = () => {
             <div className="p-6 space-y-6">
               <div>
                 <label className="text-sm font-medium text-gray-700">
-                  Course Title
+                  {t("courseClaims.modal.courseTitle")}
                 </label>
                 <p className="text-lg font-semibold text-gray-900 mt-1">
                   {selectedClaim.courseTitle}
@@ -426,17 +486,17 @@ const CourseClaims: React.FC = () => {
 
               <div>
                 <label className="text-sm font-medium text-gray-700">
-                  Justification / Rationale
+                  {t("courseClaims.modal.justification")}
                 </label>
                 <p className="text-gray-700 mt-1">
-                  {selectedClaim.rationale || "—"}
+                  {selectedClaim.rationale || t("courseClaims.table.empty")}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700">
-                    Agency
+                    {t("courseClaims.modal.agency")}
                   </label>
                   <p className="text-gray-900 mt-1">
                     {selectedClaim.agencyName}
@@ -444,7 +504,7 @@ const CourseClaims: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">
-                    Status
+                    {t("courseClaims.modal.status")}
                   </label>
                   <div className="mt-1">
                     {getStatusBadge(selectedClaim.status)}
@@ -452,7 +512,7 @@ const CourseClaims: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">
-                    Submitted Date
+                    {t("courseClaims.modal.submittedDate")}
                   </label>
                   <p className="text-gray-900 mt-1">
                     {selectedClaim.submittedDate}
@@ -461,7 +521,7 @@ const CourseClaims: React.FC = () => {
                 {selectedClaim.reviewedDate && (
                   <div>
                     <label className="text-sm font-medium text-gray-700">
-                      Reviewed Date
+                      {t("courseClaims.modal.reviewedDate")}
                     </label>
                     <p className="text-gray-900 mt-1">
                       {selectedClaim.reviewedDate}
@@ -472,23 +532,25 @@ const CourseClaims: React.FC = () => {
 
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Tags
+                  {t("courseClaims.modal.tagsLabel")}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <span className="inline-flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
                     <Tag className="w-3 h-3" />
-                    <span>Course Claim</span>
+                    <span>{t("courseClaims.modal.tagCourseClaim")}</span>
                   </span>
                 </div>
               </div>
 
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Attached Documents
+                  {t("courseClaims.modal.attachments")}
                 </label>
                 <div className="space-y-2">
                   {selectedClaim.documents.length === 0 && (
-                    <p className="text-sm text-gray-500">No attachments.</p>
+                    <p className="text-sm text-gray-500">
+                      {t("courseClaims.modal.noAttachments")}
+                    </p>
                   )}
                   {selectedClaim.documents.map((doc, index) => (
                     <div
@@ -499,7 +561,8 @@ const CourseClaims: React.FC = () => {
                         <FileText className="w-5 h-5 text-red-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {doc.name}
+                            {doc.name ||
+                              t("courseClaims.modal.attachmentFallbackName")}
                           </p>
                           <p className="text-xs text-gray-500">
                             {doc.type} • {(doc.size / 1024).toFixed(1)} KB
@@ -514,7 +577,7 @@ const CourseClaims: React.FC = () => {
                         }}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                       >
-                        View
+                        {t("courseClaims.modal.viewAttachment")}
                       </a>
                     </div>
                   ))}
@@ -523,7 +586,7 @@ const CourseClaims: React.FC = () => {
 
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Remarks{" "}
+                  {t("courseClaims.modal.remarksLabel")}{" "}
                   {selectedClaim.status.toLowerCase() === "pending" && (
                     <span className="text-red-500">*</span>
                   )}
@@ -531,7 +594,7 @@ const CourseClaims: React.FC = () => {
                 <textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  placeholder="Add your review comments here..."
+                  placeholder={t("courseClaims.modal.remarksPlaceholder")}
                   rows={4}
                   disabled={selectedClaim.status.toLowerCase() !== "pending"}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
@@ -542,17 +605,29 @@ const CourseClaims: React.FC = () => {
                 <div className="flex space-x-3 pt-4">
                   <button
                     onClick={handleApprove}
-                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    disabled={!!actionLoading}
+                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
+                    {actionLoading === "approve" && (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    )}
                     <CheckCircle className="w-5 h-5" />
-                    <span className="font-medium">Approve</span>
+                    <span className="font-medium">
+                      {t("courseClaims.modal.approve")}
+                    </span>
                   </button>
                   <button
                     onClick={handleReject}
-                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    disabled={!!actionLoading}
+                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
+                    {actionLoading === "reject" && (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    )}
                     <XCircle className="w-5 h-5" />
-                    <span className="font-medium">Reject</span>
+                    <span className="font-medium">
+                      {t("courseClaims.modal.reject")}
+                    </span>
                   </button>
                 </div>
               )}
@@ -562,15 +637,12 @@ const CourseClaims: React.FC = () => {
       )}
 
       {/* 📱 Mobile PDF Viewer Modal */}
-      {/* {isPreviewOpen && previewUrl && (
+      {previewUrl && (
         <div className="fixed inset-0 z-50 bg-black/70 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white">
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-gray-300">
-                Certificate Preview
-              </p>
-              <p className="text-sm font-medium truncate">
-                {previewName || "Document"}
+                PDF Preview
               </p>
             </div>
             <button
@@ -582,11 +654,11 @@ const CourseClaims: React.FC = () => {
           </div>
           <iframe
             src={previewUrl}
-            title="Certificate PDF"
+            title="Document PDF"
             className="flex-1 w-full bg-gray-900"
           />
         </div>
-      )} */}
+      )}
     </div>
   );
 };
