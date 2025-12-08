@@ -287,21 +287,21 @@ export default function CertificateRequests() {
     switch ((status || "").toLowerCase()) {
       case "pending":
         return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
             <Clock className="w-3 h-3" />
             <span>Pending</span>
           </span>
         );
       case "approved":
         return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
             <CheckCircle className="w-3 h-3" />
             <span>Approved</span>
           </span>
         );
       case "rejected":
         return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
             <XCircle className="w-3 h-3" />
             <span>Rejected</span>
           </span>
@@ -326,7 +326,7 @@ export default function CertificateRequests() {
     <div className="space-y-6">
       {/* header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold">Certificate Requests</h1>
+        <h1 className="text-2xl font-bold ml-8">Certificate Requests</h1>
         <button
           onClick={handleExport}
           className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -336,7 +336,7 @@ export default function CertificateRequests() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 ml-8">
         {/* filters */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
@@ -368,7 +368,7 @@ export default function CertificateRequests() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b">
+              <tr className="border-b text-lg">
                 <th className="text-left py-3 px-4">Student</th>
                 <th className="text-left py-3 px-4">Course</th>
                 <th className="text-left py-3 px-4">Agency</th>
@@ -383,14 +383,14 @@ export default function CertificateRequests() {
                   {/* STUDENT: show name + ID (and email) */}
                   <td className="py-4 px-4">
                     <div>
-                      <div className="font-medium">
+                      <div className="font-medium text-lg">
                         {r.studentName || "Unknown student"}
                       </div>
-                      <div className="text-xs font-mono text-gray-500">
+                      <div className="text-sm font-mono text-gray-500">
                         ID: {r.studentId || "—"}
                       </div>
                       {r.studentEmail && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-sm text-gray-500">
                           {r.studentEmail}
                         </div>
                       )}
@@ -398,13 +398,15 @@ export default function CertificateRequests() {
                   </td>
 
                   {/* COURSE: course name only in table */}
-                  <td className="py-4 px-4">{r.courseTitle || "—"}</td>
+                  <td className="py-4 px-4 text-base">
+                    {r.courseTitle || "—"}
+                  </td>
 
                   {/* AGENCY: agency name only in table */}
-                  <td className="py-4 px-4">{r.agencyName || "—"}</td>
+                  <td className="py-4 px-4 text-base">{r.agencyName || "—"}</td>
 
                   {/* SUBMITTED DATE */}
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 text-base">
                     {r.submittedAt
                       ? new Date(
                           // support both Timestamp + ISO string
@@ -418,7 +420,7 @@ export default function CertificateRequests() {
                   </td>
 
                   {/* STATUS */}
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 ">
                     {getStatusBadge(r.status ?? "")}
                   </td>
 

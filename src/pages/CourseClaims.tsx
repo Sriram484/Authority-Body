@@ -113,28 +113,28 @@ const CourseClaims: React.FC = () => {
     switch (status.toLowerCase()) {
       case "pending":
         return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
             <Clock className="w-3 h-3" />
             <span>Pending</span>
           </span>
         );
       case "approved":
         return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
             <CheckCircle className="w-3 h-3" />
             <span>Approved</span>
           </span>
         );
       case "rejected":
         return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
             <XCircle className="w-3 h-3" />
             <span>Rejected</span>
           </span>
         );
       case "withdrawn":
         return (
-          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+          <span className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
             <Clock className="w-3 h-3" />
             <span>Withdrawn</span>
           </span>
@@ -147,13 +147,13 @@ const CourseClaims: React.FC = () => {
   const getLevelBadge = (level: string | number | undefined) => {
     if (!level && level !== 0) {
       return (
-        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+        <span className="px-2 py-1 rounded text-sm font-medium bg-gray-100 text-gray-700">
           N/A
         </span>
       );
     }
     return (
-      <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700">
+      <span className="px-2 py-1 rounded text-sm font-medium bg-blue-100 text-blue-700">
         {typeof level === "number" ? `NSQF ${level}` : level}
       </span>
     );
@@ -266,7 +266,7 @@ const CourseClaims: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-900 ml-8">
           Course Claim Requests
         </h1>
         <button
@@ -279,7 +279,7 @@ const CourseClaims: React.FC = () => {
       </div>
 
       {/* Filters + Search */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 ml-8">
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -311,25 +311,13 @@ const CourseClaims: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  Course Title
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  Agency
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  Level
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  Submitted
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  Status
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                  Actions
-                </th>
+              <tr className="border-b border-gray-200 text-lg">
+                <th className="text-left py-3 px-4">Course Title</th>
+                <th className="text-left py-3 px-4">Agency</th>
+                <th className="text-left py-3 px-4">Level</th>
+                <th className="text-left py-3 px-4">Submitted</th>
+                <th className="text-left py-3 px-4">Status</th>
+                <th className="text-left py-3 px-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -339,15 +327,15 @@ const CourseClaims: React.FC = () => {
                   className="border-b border-gray-100 hover:bg-gray-50"
                 >
                   <td className="py-4 px-4">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-lg font-medium text-gray-900">
                       {claim.courseTitle}
                     </p>
                   </td>
-                  <td className="py-4 px-4 text-sm text-gray-600">
+                  <td className="py-4 px-4 text-base text-gray-600">
                     {claim.agencyName}
                   </td>
                   <td className="py-4 px-4">{getLevelBadge("temporary")}</td>
-                  <td className="py-4 px-4 text-sm text-gray-600">
+                  <td className="py-4 px-4 text-base text-gray-600">
                     {claim.submittedDate}
                   </td>
                   <td className="py-4 px-4">{getStatusBadge(claim.status)}</td>

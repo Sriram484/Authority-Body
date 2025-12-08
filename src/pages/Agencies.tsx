@@ -355,7 +355,7 @@ const Agencies: React.FC = () => {
     <div className="space-y-6">
       {/* header + search + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-900 ml-8">
           Assessment Agencies
         </h1>
         <div className="flex space-x-2">
@@ -377,7 +377,7 @@ const Agencies: React.FC = () => {
       </div>
 
       {/* cards */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 ml-8">
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
