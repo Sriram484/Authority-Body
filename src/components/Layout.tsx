@@ -58,7 +58,7 @@ const Layout: React.FC<LayoutProps> = ({
             <Building2 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-lg font-bold text-gray-900">
               {t("layout.brand.title")}
             </h1>
             <p className="text-base text-gray-500">

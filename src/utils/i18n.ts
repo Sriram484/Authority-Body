@@ -17,7 +17,7 @@ const resources = {
           },
           slide3: {
             title: "Certification You Can Trust",
-            subtitle: "Verified by National Authority",
+            subtitle: "Verified by National Awarding",
           },
         },
         overviewTitle: "Overview",
@@ -227,7 +227,7 @@ const resources = {
           websitePlaceholder: "https://agency.com",
 
           linkCoursesLabel: "Link Courses to this Agency",
-          noCoursesAvailable: "No courses available for this Authority Body.",
+          noCoursesAvailable: "No courses available for this Awarding Body.",
 
           courseCodeLabel: "Code",
           nsqfLabel: "NSQF",
@@ -238,10 +238,10 @@ const resources = {
         },
 
         alerts: {
-          noAbContext: "No Authority Body context (AB ID missing).",
+          noAbContext: "No Awarding Body context (AB ID missing).",
           requiredFields: "Please fill in all required fields",
-          noAbIdSave: "No Authority Body id (AB ID). Cannot save agency.",
-          noAbIdDelete: "No Authority Body id (AB ID). Cannot delete agency.",
+          noAbIdSave: "No Awarding Body id (AB ID). Cannot save agency.",
+          noAbIdDelete: "No Awarding Body id (AB ID). Cannot delete agency.",
           saveFailed: "Failed to save agency",
           loadFailed: "Failed to load agencies",
           deleteFailed: "Failed to delete agency",
@@ -318,10 +318,10 @@ const resources = {
         },
 
         alerts: {
-          noAbContext: "No Authority Body id (AB ID) in context.",
+          noAbContext: "No Awarding Body id (AB ID) in context.",
           requiredFields: "Please fill in all required fields",
-          noAbIdSave: "No Authority Body id (AB ID). Cannot save course.",
-          noAbIdDelete: "No Authority Body id (AB ID). Cannot delete course.",
+          noAbIdSave: "No Awarding Body id (AB ID). Cannot save course.",
+          noAbIdDelete: "No Awarding Body id (AB ID). Cannot delete course.",
           saveFailed: "Failed to save course",
           loadFailed: "Failed to load courses",
           deleteFailed: "Failed to delete course",
@@ -345,7 +345,7 @@ const resources = {
         },
 
         header: {
-          roleFallback: "Authority Body",
+          roleFallback: "Awarding Body",
         },
 
         fields: {
@@ -392,7 +392,7 @@ const resources = {
 
       layout: {
         brand: {
-          title: "Authority Portal",
+          title: "Awarding Body Portal",
           subtitle: "Admin Dashboard",
         },
         nav: {
@@ -413,8 +413,8 @@ const resources = {
           },
         },
         userBlock: {
-          fallbackEmailName: "Authority Admin",
-          fallbackRole: "Authority Body",
+          fallbackEmailName: "Awarding Admin",
+          fallbackRole: "Awarding Body",
         },
         mobileMenu: {
           viewProfile: "View Profile",
@@ -1082,7 +1082,7 @@ const resources = {
 
           linkCoursesLabel: "இந்த நிறுவனத்துடன் பாடநெறிகளை இணைக்கவும்",
           noCoursesAvailable:
-            "இந்த அதிகாரத்தில் (Authority Body) எந்தப் பாடநெறியும் இல்லை.",
+            "இந்த அதிகாரத்தில் (Awarding Body) எந்தப் பாடநெறியும் இல்லை.",
 
           courseCodeLabel: "குறியீடு",
           nsqfLabel: "NSQF",
@@ -1093,12 +1093,12 @@ const resources = {
         },
 
         alerts: {
-          noAbContext: "Authority Body (AB ID) கிடைக்கவில்லை.",
+          noAbContext: "Awarding Body (AB ID) கிடைக்கவில்லை.",
           requiredFields: "அனைத்து தேவையான புலங்களையும் நிரப்பவும்.",
           noAbIdSave:
-            "Authority Body ID (AB ID) இல்லாமல் நிறுவனம் சேமிக்க முடியாது.",
+            "Awarding Body ID (AB ID) இல்லாமல் நிறுவனம் சேமிக்க முடியாது.",
           noAbIdDelete:
-            "Authority Body ID (AB ID) இல்லாமல் நிறுவனம் நீக்க முடியாது.",
+            "Awarding Body ID (AB ID) இல்லாமல் நிறுவனம் நீக்க முடியாது.",
           saveFailed: "நிறுவனத்தை சேமிக்க முடியவில்லை.",
           loadFailed: "நிறுவனங்களை ஏற்ற முடியவில்லை.",
           deleteFailed: "நிறுவனத்தை நீக்க முடியவில்லை.",
@@ -1176,12 +1176,12 @@ const resources = {
         },
 
         alerts: {
-          noAbContext: "கட்டத்தில் Authority Body ID (AB ID) இல்லை.",
+          noAbContext: "கட்டத்தில் Awarding Body ID (AB ID) இல்லை.",
           requiredFields: "அனைத்து தேவையான புலங்களையும் நிரப்பவும்.",
           noAbIdSave:
-            "Authority Body ID (AB ID) இல்லாமல் பாடநெறியை சேமிக்க முடியாது.",
+            "Awarding Body ID (AB ID) இல்லாமல் பாடநெறியை சேமிக்க முடியாது.",
           noAbIdDelete:
-            "Authority Body ID (AB ID) இல்லாமல் பாடநெறியை நீக்க முடியாது.",
+            "Awarding Body ID (AB ID) இல்லாமல் பாடநெறியை நீக்க முடியாது.",
           saveFailed: "பாடநெறியை சேமிக்க முடியவில்லை.",
           loadFailed: "பாடநெறிகளை ஏற்ற முடியவில்லை.",
           deleteFailed: "பாடநெறியை நீக்க முடியவில்லை.",
