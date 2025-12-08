@@ -38,7 +38,6 @@ import { buildApprovedCertificateAsset } from "../blockchain/approval-mapper";
 import { generateQrDataUrl } from "../utils/qr";
 import {
   generateFinalImageWithQrAndStego,
-  generateFinalPdfWithQr,
 } from "../utils/certificate-qr-renderer";
 import { useTranslation } from "react-i18next";
 

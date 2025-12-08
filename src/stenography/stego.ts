@@ -1,115 +1,11 @@
-// // src/utils/stego.ts
-
-// /**
-//  * Hash a string (here: certificateId) to 32 bytes using Web Crypto (SHA-256).
-//  */
-// export async function hashPayloadToBytes(payload: string): Promise<Uint8Array> {
-//   const enc = new TextEncoder();
-//   const data = enc.encode(payload);
-//   const hashBuf = await crypto.subtle.digest("SHA-256", data);
-//   return new Uint8Array(hashBuf); // 32 bytes
-// }
-
-// /**
-//  * Embed fingerprint bytes into blue-channel LSBs of the canvas pixels.
-//  * - data length: fingerprint.length * 8 pixels
-//  * - Each bit is stored in 1 pixel's blue LSB.
-//  */
-// export function embedWatermarkLSB(
-//   canvasEl: HTMLCanvasElement,
-//   fingerprint: Uint8Array
-// ): void {
-//   const ctx = canvasEl.getContext("2d");
-//   if (!ctx) return;
-
-//   const { width, height } = canvasEl;
-//   const imageData = ctx.getImageData(0, 0, width, height);
-//   const data = imageData.data; // [R,G,B,A, R,G,B,A, ...]
-
-//   // bytes -> bits
-//   const bits: number[] = [];
-//   for (const byte of fingerprint) {
-//     for (let i = 7; i >= 0; i--) {
-//       bits.push((byte >> i) & 1);
-//     }
-//   }
-
-//   const bitsNeeded = bits.length;
-//   const pixelsAvailable = data.length / 4;
-//   const embedCount = Math.min(bitsNeeded, pixelsAvailable);
-
-//   for (let i = 0; i < embedCount; i++) {
-//     const baseIndex = i * 4;
-//     const blueIndex = baseIndex + 2; // B channel
-
-//     let B = data[blueIndex];
-//     if (bits[i] === 1) B = B | 1; // set LSB 1
-//     else B = B & 0xfe; // set LSB 0
-
-//     data[blueIndex] = B;
-//   }
-
-//   ctx.putImageData(imageData, 0, 0);
-// }
-
-// /**
-//  * Extract N bytes from blue-channel LSBs of the canvas pixels.
-//  */
-// export function extractWatermarkLSB(
-//   canvasEl: HTMLCanvasElement,
-//   byteLength = 32
-// ): Uint8Array | null {
-//   const ctx = canvasEl.getContext("2d");
-//   if (!ctx) return null;
-
-//   const { width, height } = canvasEl;
-//   const imageData = ctx.getImageData(0, 0, width, height);
-//   const data = imageData.data;
-
-//   const bitsNeeded = byteLength * 8;
-//   const pixelsAvailable = data.length / 4;
-//   if (pixelsAvailable < bitsNeeded) {
-//     console.warn("[stego] Not enough pixels to extract");
-//     return null;
-//   }
-
-//   const bits: number[] = [];
-//   for (let i = 0; i < bitsNeeded; i++) {
-//     const baseIndex = i * 4;
-//     const blueIndex = baseIndex + 2;
-//     const B = data[blueIndex];
-//     bits.push(B & 1);
-//   }
-
-//   const bytes = new Uint8Array(byteLength);
-//   for (let i = 0; i < byteLength; i++) {
-//     let b = 0;
-//     for (let j = 0; j < 8; j++) {
-//       b = (b << 1) | bits[i * 8 + j];
-//     }
-//     bytes[i] = b;
-//   }
-
-//   return bytes;
-// }
-
-// /**
-//  * Compare two byte arrays for equality.
-//  */
-// export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-//   if (a.length !== b.length) return false;
-//   for (let i = 0; i < a.length; i++) {
-//     if (a[i] !== b[i]) return false;
-//   }
-//   return true;
-// }
-
 // src/utils/stego.ts
 
 /**
- * Hash a string (certificateId) to 32 bytes using Web Crypto (SHA-256).
+ * SHA-256(certificateId) -> 32 bytes
  */
-export async function hashPayloadToBytes(payload: string): Promise<Uint8Array> {
+export async function hashPayloadToBytes(
+  payload: string
+): Promise<Uint8Array> {
   const enc = new TextEncoder();
   const data = enc.encode(payload);
   const hashBuf = await crypto.subtle.digest("SHA-256", data);
@@ -117,65 +13,92 @@ export async function hashPayloadToBytes(payload: string): Promise<Uint8Array> {
 }
 
 /**
- * Embed fingerprint bytes into page as robust blocks.
- * Each bit uses a blockSize x blockSize region.
- * bit=1 => blue=255 for that block
- * bit=0 => blue=0   for that block
+ * bytes -> bit string "010101..."
  */
-export function embedWatermarkBlocks(
+function bytesToBitString(bytes: Uint8Array): string {
+  let bits = "";
+  for (const byte of bytes) {
+    let b = byte.toString(2);
+    while (b.length < 8) b = "0" + b;
+    bits += b;
+  }
+  return bits;
+}
+
+/**
+ * bit string -> bytes
+ */
+function bitStringToBytes(bitString: string): Uint8Array {
+  const byteLength = Math.floor(bitString.length / 8);
+  const out = new Uint8Array(byteLength);
+
+  for (let i = 0; i < byteLength; i++) {
+    let b = 0;
+    for (let j = 0; j < 8; j++) {
+      b = (b << 1) | (bitString[i * 8 + j] === "1" ? 1 : 0);
+    }
+    out[i] = b;
+  }
+
+  return out;
+}
+
+/**
+ * ENCODE (ultra-aggressive, multi-pattern):
+ * - We take hashBytes (32 bytes => 256 bits)
+ * - We embed it N times (numPatterns) in *disjoint* pixel sets
+ * - Only blue-channel LSB is used
+ *
+ * Mapping:
+ *   totalBits = bitsNeeded * numPatterns
+ *   step = floor(totalPixels / totalBits)
+ *   slotIndex = i * numPatterns + pattern
+ *   pixelIndex = slotIndex * step
+ */
+export function embedHashDistributedBlueMulti(
   canvasEl: HTMLCanvasElement,
-  fingerprint: Uint8Array,
-  blockSize = 8
+  hashBytes: Uint8Array,
+  numPatterns = 3
 ): void {
   const ctx = canvasEl.getContext("2d");
   if (!ctx) return;
 
   const { width, height } = canvasEl;
   const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data; // [R,G,B,A,...]
+  const data = imageData.data; // [R,G,B,A, ...]
 
-  // bytes -> bits
-  const bits: number[] = [];
-  for (const byte of fingerprint) {
-    for (let i = 7; i >= 0; i--) {
-      bits.push((byte >> i) & 1);
-    }
-  }
+  const bitString = bytesToBitString(hashBytes); // 256 bits
+  const bitsNeeded = bitString.length;
+  const totalPixels = data.length / 4;
 
-  const blocksPerRow = Math.floor(width / blockSize);
-  const blocksPerCol = Math.floor(height / blockSize);
-  const maxBlocks = blocksPerRow * blocksPerCol;
+  const totalSlots = bitsNeeded * numPatterns;
 
-  if (bits.length > maxBlocks) {
+  if (totalPixels < totalSlots) {
     console.warn(
-      "[stego] Not enough blocks to embed all bits – increase page size or decrease blockSize"
+      "[stego] image too small for multi-pattern hash:",
+      "pixels=", totalPixels,
+      "neededSlots=", totalSlots
     );
+    return;
   }
 
-  const totalBits = Math.min(bits.length, maxBlocks);
+  const step = Math.floor(totalPixels / totalSlots) || 1;
 
-  for (let i = 0; i < totalBits; i++) {
-    const bit = bits[i];
+  // For each pattern, embed the same bitString in a different subset of pixels
+  for (let pattern = 0; pattern < numPatterns; pattern++) {
+    for (let i = 0; i < bitsNeeded; i++) {
+      const slotIndex = i * numPatterns + pattern;
+      const pixelIndex = slotIndex * step;
+      if (pixelIndex >= totalPixels) break;
 
-    const blockRow = Math.floor(i / blocksPerRow);
-    const blockCol = i % blocksPerRow;
+      const baseIndex = pixelIndex * 4;
+      const blueIndex = baseIndex + 2;
 
-    const startX = blockCol * blockSize;
-    const startY = blockRow * blockSize;
+      const oldB = data[blueIndex];
+      const bit = bitString[i] === "1" ? 1 : 0;
 
-    const blueValue = bit ? 255 : 0;
-
-    for (let by = 0; by < blockSize; by++) {
-      const y = startY + by;
-      if (y >= height) break;
-      for (let bx = 0; bx < blockSize; bx++) {
-        const x = startX + bx;
-        if (x >= width) break;
-
-        const idx = (y * width + x) * 4;
-        // keep R,G,A same; only change B
-        data[idx + 2] = blueValue;
-      }
+      // Only touch LSB of blue channel
+      data[blueIndex] = (oldB & 0xfe) | bit;
     }
   }
 
@@ -183,13 +106,15 @@ export function embedWatermarkBlocks(
 }
 
 /**
- * Extract byteLength bytes from the blue-block pattern.
+ * DECODE (multi-pattern):
+ * - Using the same mapping as encoder
+ * - Returns an array of hashes, one per pattern
  */
-export function extractWatermarkBlocks(
+export function extractHashDistributedBlueMulti(
   canvasEl: HTMLCanvasElement,
   byteLength = 32,
-  blockSize = 8
-): Uint8Array | null {
+  numPatterns = 3
+): Uint8Array[] | null {
   const ctx = canvasEl.getContext("2d");
   if (!ctx) return null;
 
@@ -198,61 +123,44 @@ export function extractWatermarkBlocks(
   const data = imageData.data;
 
   const bitsNeeded = byteLength * 8;
+  const totalPixels = data.length / 4;
+  const totalSlots = bitsNeeded * numPatterns;
 
-  const blocksPerRow = Math.floor(width / blockSize);
-  const blocksPerCol = Math.floor(height / blockSize);
-  const maxBlocks = blocksPerRow * blocksPerCol;
-
-  if (maxBlocks < bitsNeeded) {
-    console.warn("[stego] Not enough blocks to extract");
+  if (totalPixels < totalSlots) {
+    console.warn(
+      "[stego] not enough pixels for multi-pattern decode:",
+      "pixels=", totalPixels,
+      "neededSlots=", totalSlots
+    );
     return null;
   }
 
-  const bits: number[] = [];
+  const step = Math.floor(totalPixels / totalSlots) || 1;
+  const results: Uint8Array[] = [];
 
-  for (let i = 0; i < bitsNeeded; i++) {
-    const blockRow = Math.floor(i / blocksPerRow);
-    const blockCol = i % blocksPerRow;
+  for (let pattern = 0; pattern < numPatterns; pattern++) {
+    let bitString = "";
 
-    const startX = blockCol * blockSize;
-    const startY = blockRow * blockSize;
+    for (let i = 0; i < bitsNeeded; i++) {
+      const slotIndex = i * numPatterns + pattern;
+      const pixelIndex = slotIndex * step;
+      if (pixelIndex >= totalPixels) break;
 
-    let sumB = 0;
-    let count = 0;
+      const baseIndex = pixelIndex * 4;
+      const blueIndex = baseIndex + 2;
+      const B = data[blueIndex];
 
-    for (let by = 0; by < blockSize; by++) {
-      const y = startY + by;
-      if (y >= height) break;
-      for (let bx = 0; bx < blockSize; bx++) {
-        const x = startX + bx;
-        if (x >= width) break;
-
-        const idx = (y * width + x) * 4;
-        const B = data[idx + 2];
-        sumB += B;
-        count++;
-      }
+      bitString += (B & 1).toString();
     }
 
-    const avgB = count ? sumB / count : 0;
-    const bit = avgB > 127 ? 1 : 0;
-    bits.push(bit);
+    results.push(bitStringToBytes(bitString));
   }
 
-  const bytes = new Uint8Array(byteLength);
-  for (let i = 0; i < byteLength; i++) {
-    let b = 0;
-    for (let j = 0; j < 8; j++) {
-      b = (b << 1) | bits[i * 8 + j];
-    }
-    bytes[i] = b;
-  }
-
-  return bytes;
+  return results;
 }
 
 /**
- * Compare two byte arrays for equality.
+ * Compare two byte arrays
  */
 export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
