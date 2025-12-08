@@ -183,6 +183,7 @@ export default function CertificateRequests() {
 
       const templateJson = certificate!.templateJson;
 
+      //TODO
       const dummyUrl = `https://example.com/cert/`;
       const qrDataUrl = await generateQrDataUrl(dummyUrl);
 
@@ -733,24 +734,6 @@ export default function CertificateRequests() {
   );
 }
 
-function downloadBase64Pdf(base64: string, filename = "certificate.pdf") {
-  const byteCharacters = atob(base64);
-  const byteNumbers = new Array(byteCharacters.length);
-
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: "application/pdf" });
-
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = filename;
-  link.click();
-
-  URL.revokeObjectURL(link.href);
-}
 
 function base64ToBlob(base64: string, contentType = "application/pdf") {
   const byteCharacters = atob(base64);
