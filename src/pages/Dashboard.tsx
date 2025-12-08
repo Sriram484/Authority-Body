@@ -169,10 +169,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
 
       {/* STATS */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 ml-8">
           {t("dashboard.overviewTitle")}
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 ml-8">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
@@ -188,7 +188,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
                   </div>
                   <TrendingUp className={`w-5 h-5 ${stat.textColor}`} />
                 </div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
+                <p className="text-xl font-medium text-gray-600 mb-1">
                   {stat.label}
                 </p>
                 <p className={`text-3xl font-bold ${stat.textColor}`}>
@@ -201,8 +201,8 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
       </div>
 
       {/* RECENT ACTIVITY */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 ml-8">
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">
           {t("dashboard.activity.title")}
         </h3>
         {recentActivity.length > 0 ? (
@@ -214,18 +214,18 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
               >
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                    <span className="text-base font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
                       {activity.type}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-base text-gray-500">
                       {activity.date}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-lg font-medium text-gray-900">
                     {activity.title}
                   </p>
                 </div>
-                <span className="text-xs font-medium text-orange-600 bg-orange-50 px-3 py-1 rounded-full whitespace-nowrap ml-4">
+                <span className="text-base font-medium text-orange-600 bg-orange-50 px-3 py-1 rounded-full whitespace-nowrap ml-4">
                   {activity.status}
                 </span>
               </div>

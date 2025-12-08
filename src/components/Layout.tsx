@@ -40,22 +40,22 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* ===== DESKTOP SIDEBAR (md+) ===== */}
-      <aside className="hidden md:flex md:flex-col md:w-64 bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-40">
+      <aside className="hidden md:flex md:flex-col md:w-72 bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-40">
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-200">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
             <Building2 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-gray-900">
               Authority Portal
             </h1>
-            <p className="text-xs text-gray-500">Admin Dashboard</p>
+            <p className="text-base text-gray-500">Admin Dashboard</p>
           </div>
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -63,13 +63,13 @@ const Layout: React.FC<LayoutProps> = ({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xl font-medium transition-colors ${
                   isActive
                     ? "bg-blue-50 text-blue-700"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-6 h-6" />
                 <span>{item.label}</span>
               </button>
             );
@@ -80,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="border-t border-gray-200 px-4 py-3 space-y-3">
           {/* Language selector */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">
+            <label className="block text-base font-semibold text-gray-500 mb-1">
               Language
             </label>
             <div className="relative">
@@ -89,7 +89,7 @@ const Layout: React.FC<LayoutProps> = ({
                 onChange={(e) =>
                   setLanguage(e.target.value as "en" | "hi" | "ta" | "raj")
                 }
-                className="w-full text-xs rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                className="w-full text-sm rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
               >
                 <option value="en">English</option>
                 <option value="hi">हिन्दी</option>
@@ -102,10 +102,10 @@ const Layout: React.FC<LayoutProps> = ({
           {/* User + logout */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-gray-900 truncate">
+              <span className="text-base font-medium text-gray-900 truncate">
                 {user?.email || "Authority Admin"}
               </span>
-              <span className="text-xs text-gray-500 truncate">
+              <span className="text-sm text-gray-500 truncate">
                 {role || "Authority Body"}
               </span>
             </div>
