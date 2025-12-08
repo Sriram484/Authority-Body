@@ -30,9 +30,13 @@ const resources = {
         activity: {
           title: "Recent Activity",
           none: "No recent activity",
-          typeCertificate: "Certificate Request",
-          typeCourseClaim: "Course Claim",
-          statusPending: "Pending Review",
+          types: {
+            certificateRequest: "Certificate Request",
+            courseClaim: "Course Claim",
+          },
+          status: {
+            pendingReview: "Pending Review",
+          },
         },
       },
     },
@@ -65,44 +69,52 @@ const resources = {
         activity: {
           title: "हाल की गतिविधि",
           none: "कोई हाल की गतिविधि नहीं",
-          typeCertificate: "प्रमाण पत्र अनुरोध",
-          typeCourseClaim: "पाठ्यक्रम दावा",
-          statusPending: "समीक्षा लंबित",
+          types: {
+            certificateRequest: "प्रमाण पत्र अनुरोध",
+            courseClaim: "पाठ्यक्रम दावा",
+          },
+          status: {
+            pendingReview: "समीक्षा लंबित",
+          },
         },
       },
     },
   },
 
-  mrw: {
+  ta: {
     translation: {
       dashboard: {
         hero: {
           slide1: {
-            title: "शिक्षा आकलन में बेस्ट",
-            subtitle: "पूरे देस में क्वालिटी राखां",
+            title: "கல்வி மதிப்பீட்டில் சிறப்பு",
+            subtitle: "நாடு முழுவதும் தரநிலைகளை உறுதிப்படுத்தல்",
           },
           slide2: {
-            title: "आकलन एजेंसी ने सशक्त बनावां",
-            subtitle: "मिलकै भविष्य ने नीको बनावां",
+            title: "மதிப்பீட்டு நிறுவனங்களுக்கு வலுசேர்த்தல்",
+            subtitle: "சேர்ந்து ஒரு சிறந்த எதிர்காலத்தை உருவாக்குவோம்",
           },
           slide3: {
-            title: "भरोसोमंद सर्टिफिकेट",
-            subtitle: "रास्ट्रीय अथॉरिटी सूं पक्का",
+            title: "நம்பிக்கைக்குரிய சான்றிதழ்",
+            subtitle: "தேசிய ஆணையத்தால் சரிபார்க்கப்பட்டது",
           },
         },
-        overviewTitle: "ओवरव्यू",
+        overviewTitle: "மேலோட்டம்",
         stats: {
-          totalAgencies: "कुल एजेंसी",
-          activeCourses: "एक्टिव कोर्स",
-          pendingCertificates: "लंबित सर्टिफिकेट रिक्वेस्ट",
-          pendingClaims: "लंबित कोर्स क्लेम",
+          totalAgencies: "மொத்த நிறுவனங்கள்",
+          activeCourses: "செயலில் உள்ள பாடநெறிகள்",
+          pendingCertificates: "நிலுவையில் உள்ள சான்றிதழ் கோரிக்கைகள்",
+          pendingClaims: "நிலுவையில் உள்ள பாடநெறி கோரிக்கைகள்",
         },
         activity: {
-          title: "हाल की हलचल",
-          none: "अभी कोई हलचल नायं",
-          typeCertificate: "सर्टिफिकेट रिक्वेस्ट",
-          typeCourseClaim: "कोर्स क्लेम",
-          statusPending: "रिव्यू में",
+          title: "சமீபத்திய செயல்பாடுகள்",
+          none: "சமீபத்திய செயல்பாடுகள் எதுவும் இல்லை",
+          types: {
+            certificateRequest: "சான்றிதழ் கோரிக்கை",
+            courseClaim: "பாடநெறி கோரிக்கை",
+          },
+          status: {
+            pendingReview: "மதிப்பாய்வில் உள்ளது",
+          },
         },
       },
     },
@@ -135,9 +147,13 @@ const resources = {
         activity: {
           title: "हाल री गतिविधि",
           none: "कोई हाल री गतिविधि न्हीं",
-          typeCertificate: "प्रमाण पत्र रिक्वेस्ट",
-          typeCourseClaim: "कोर्स क्लेम",
-          statusPending: "रिव्यू लंबित",
+          types: {
+            certificateRequest: "प्रमाण पत्र रिक्वेस्ट",
+            courseClaim: "कोर्स क्लेम",
+          },
+          status: {
+            pendingReview: "ரिव्यू लंबित",
+          },
         },
       },
     },

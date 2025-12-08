@@ -87,13 +87,13 @@ const Layout: React.FC<LayoutProps> = ({
               <select
                 value={language}
                 onChange={(e) =>
-                  setLanguage(e.target.value as "en" | "hi" | "mrw" | "raj")
+                  setLanguage(e.target.value as "en" | "hi" | "ta" | "raj")
                 }
                 className="w-full text-xs rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
               >
                 <option value="en">English</option>
                 <option value="hi">हिन्दी</option>
-                <option value="mrw">Marwari</option>
+                <option value="ta">Tamil</option>
                 <option value="raj">Rajasthani</option>
               </select>
             </div>

@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import i18n from "../utils/i18n";
 
-type SupportedLanguage = "en" | "hi" | "mrw" | "raj";
+type SupportedLanguage = "en" | "hi" | "ta" | "raj";
 
 interface LanguageContextValue {
   language: SupportedLanguage;
@@ -24,7 +24,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const saved = localStorage.getItem("lang") as SupportedLanguage | null;
 
-    if (saved && ["en", "hi", "mrw", "raj"].includes(saved)) {
+    if (saved && ["en", "hi", "ta", "raj"].includes(saved)) {
       setLanguageState(saved);
       i18n.changeLanguage(saved);
     } else {
