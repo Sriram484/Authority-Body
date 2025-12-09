@@ -44,6 +44,7 @@ const Layout: React.FC<LayoutProps> = ({
     { id: "agencies", label: t("layout.nav.agencies"), icon: Building2 },
     { id: "courses", label: t("layout.nav.courses"), icon: BookOpen },
     { id: "profile", label: t("layout.nav.profile"), icon: User },
+    { id: "bulk", label: t("layout.nav.bulkUpload"), icon: User },
   ];
 
   const primaryNavItems = navigationItems.slice(0, 5); // for mobile bottom nav

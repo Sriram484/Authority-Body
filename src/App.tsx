@@ -12,6 +12,7 @@ import Profile from "./pages/Profile";
 import initialData from "./data.json";
 import "../src/utils/i18n"; // <-- important: initialize translations
 import { LanguageProvider } from "./context/LanguageContext";
+import BulkCertificatesPage from "./pages/BulkCertificates";
 
 function AppContent() {
   const { user, loading } = useAuth(); // ✅ from new AuthContext
@@ -128,6 +129,8 @@ function AppContent() {
         return <Courses />;
       case "profile":
         return <Profile />;
+      case "bulk":
+        return <BulkCertificatesPage />;
       default:
         return <Dashboard data={appData} />;
     }

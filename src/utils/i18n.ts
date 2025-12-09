@@ -402,6 +402,7 @@ const resources = {
           agencies: "Agencies",
           courses: "Courses",
           profile: "Profile",
+          bulkUpload: "Bulk Upload",
         },
         language: {
           label: "Language",
