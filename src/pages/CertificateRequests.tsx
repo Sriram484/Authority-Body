@@ -186,7 +186,7 @@ export default function CertificateRequests() {
       const templateJson = certificate!.templateJson;
 
       //TODO
-      const dummyUrl = selectedRequest.id;
+      const dummyUrl = `https://certificate-verify-liard.vercel.app/?id=${selectedRequest.id}`;
       const qrDataUrl = await generateQrDataUrl(dummyUrl);
 
       const finalPdfBase64 = await generateFinalImageWithQrAndStego({
